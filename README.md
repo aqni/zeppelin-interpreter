@@ -1,9 +1,13 @@
 # IGinX Zeppelin-Interpreter
+
 ## 介绍
+
 这是一个Zeppelin的IGinX解释器，用于连接Zeppelin和IGinX。
 
 ## 如何构建
+
 执行下面的命令以构建IGinX Zeppelin-Interpreter的Jar包。
+
 ```shell
 mvn clean package -DskipTests -P get-jar-with-dependencies
 ```
@@ -143,8 +147,6 @@ docker run -v ~/code/zeppelin-interpreter/:/opt/zeppelin/interpreter/iginx --pri
 8. iginx.outfile.max.num：IGinX OUTFILE文件夹中存放的总文件夹数量限制，每次查询会创建一个文件夹，超出后会删除最早的文件夹。
 9. iginx.outfile.max.size：IGinX OUTFILE文件夹中存储的总文件大小限制，单位为MB，超出后会删除最早的文件。
 10. **iginx.file.http.port**：IGinX中文件下载服务要占用的端口，默认为18082，如果需要修改端口则修改此处。
-
-
 
 ### 新建IGinX笔记本
 

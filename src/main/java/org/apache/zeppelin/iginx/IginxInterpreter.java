@@ -696,9 +696,10 @@ public class IginxInterpreter extends AbstractInterpreter {
   }
 
   private boolean reopenSession() {
-    try{
+    try {
       session.closeSession();
-    }catch (SessionException ignored){}
+    } catch (SessionException ignored) {
+    }
 
     try {
       session.openSession();

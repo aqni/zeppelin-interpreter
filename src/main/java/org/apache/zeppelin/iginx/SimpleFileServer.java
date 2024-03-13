@@ -105,15 +105,18 @@ public class SimpleFileServer {
       Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
       while (networkInterfaces.hasMoreElements()) {
         NetworkInterface networkInterface = networkInterfaces.nextElement();
-        if(networkInterface.isLoopback() || networkInterface.isVirtual() || !networkInterface.isUp()){
+        if (networkInterface.isLoopback()
+            || networkInterface.isVirtual()
+            || !networkInterface.isUp()) {
           continue;
         }
 
         Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
         while (inetAddresses.hasMoreElements()) {
           InetAddress inetAddress = inetAddresses.nextElement();
-          if (!inetAddress.isLoopbackAddress() && !isPrivateIPAddress(inetAddress.getHostAddress())
-                  && inetAddress instanceof Inet4Address) {
+          if (!inetAddress.isLoopbackAddress()
+              && !isPrivateIPAddress(inetAddress.getHostAddress())
+              && inetAddress instanceof Inet4Address) {
             // 这里得到了非回环地址的IPv4地址
             return inetAddress.getHostAddress();
           }
@@ -127,14 +130,10 @@ public class SimpleFileServer {
 
   // 判断是否为私有IP地址
   private static boolean isPrivateIPAddress(String ipAddress) {
-    return ipAddress.startsWith("10.") ||
-            ipAddress.startsWith("192.168.") ||
-            (ipAddress.startsWith("172.") &&
-                    (Integer.parseInt(ipAddress.split("\\.")[1]) >= 16 &&
-                            Integer.parseInt(ipAddress.split("\\.")[1]) <= 31));
+    return ipAddress.startsWith("10.")
+        || ipAddress.startsWith("192.168.")
+        || (ipAddress.startsWith("172.")
+            && (Integer.parseInt(ipAddress.split("\\.")[1]) >= 16
+                && Integer.parseInt(ipAddress.split("\\.")[1]) <= 31));
   }
-
-    public static void main(String[] args) throws IOException {
-        System.out.println(isPrivateIPAddress("172.20.0.1"));
-    }
 }
