@@ -35,7 +35,7 @@ mvn clean package -DskipTests -P get-jar-with-dependencies
 
 #### 下载Zeppelin包
 
-前往Zeppelin官网https://zeppelin.apache.org/download.html，下载红框标记出的包：
+前往[Zeppelin官网](https://zeppelin.apache.org/download.html)，下载红框标记出的包：
 
 这两个包的区别是`all`包自带了zeppelin所有的解释器，而`netinst`只带有少量解释器，因为我们使用IGinX自行实现的解释器，下载`netinst`版本即可。（如果0.10.1版本使用有问题的话，找到`zeppelin-0.9.0-preview2`版本下载也可以使用，使用方法相同）
 
