@@ -17,6 +17,9 @@ public class SimpleFileServer {
   private int port;
   private String fileDir;
 
+  protected static final boolean isOnWin =
+      System.getProperty("os.name").toLowerCase().contains("win");
+
   private HttpServer httpServer = null;
 
   public SimpleFileServer(int port, String fileDir) {
@@ -28,7 +31,15 @@ public class SimpleFileServer {
     // 检测端口是否被占用，如果占用则kill掉
     try {
       new Socket("localhost", port).close();
-      Runtime.getRuntime().exec("kill -9 $(lsof -t -i:" + port + ")");
+      if (isOnWin) {
+        Runtime.getRuntime()
+            .exec(
+                "for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :"
+                    + port
+                    + "') do taskkill /F /PID %a");
+      } else {
+        Runtime.getRuntime().exec("kill -9 $(lsof -t -i:" + port + ")");
+      }
     } catch (IOException e) {
       // do nothing
     }
