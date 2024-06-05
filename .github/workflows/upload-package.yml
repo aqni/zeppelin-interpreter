@@ -10,17 +10,19 @@ jobs:
         name: Upload to Github Release
         runs-on: ubuntu-latest
         steps:
+            - uses: actions/checkout@v4
+              with:
+                repository: IGinX-THU/IGinX
+                ref: main
+                path: iginx
+            - uses: actions/checkout@v4
+              with:
+                path: zeppelin-interpreter
             - uses: actions/setup-java@v4
               with:
                   java-version: "8"
                   distribution: "temurin"
                   cache: "maven"
-            - name: Checkout latest IGinX
-              uses: actions/checkout@v4
-              with:
-                  repository: IGinX-THU/IGinX
-                  ref: main
-                  path: iginx
             - name: Install IGinX
               id: iginx
               working-directory: iginx
@@ -31,9 +33,6 @@ jobs:
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
                   DATE=$(date +%Y%m%d%H%M%S)
                   echo "date=$DATE" >> $GITHUB_OUTPUT
-            - uses: actions/checkout@v4
-              with:
-                  path: zeppelin-interpreter
             - name: Package zeppelin-interpreter
               id: package
               working-directory: zeppelin-interpreter
