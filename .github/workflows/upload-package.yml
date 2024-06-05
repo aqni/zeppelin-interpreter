@@ -59,7 +59,7 @@ jobs:
                   fail_on_unmatched_files: true
             - if: ${{ failure() }}
               name: report failure to issue
-              uses: nashmaniac/create-issue-action@v1.2
+              uses: dacbd/create-issue-action@main
               with:
                   title: Auto build failed for commit ${{github.sha}}
                   body: |
