@@ -44,8 +44,6 @@ jobs:
                     -P get-jar-with-dependencies \
                     -P !format \
                     -P !github-repo
-                  VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-                  echo "version=$VERSION" >> $GITHUB_OUTPUT
             - name: Create Release
               uses: softprops/action-gh-release@v2
               with:
@@ -55,7 +53,6 @@ jobs:
                       build date: ${{ steps.iginx.outputs.date }}
                       branch: ${{ github.ref }}
                       iginx version: ${{ steps.iginx.outputs.version }}
-                      zeppelin-interpreter version: ${{ steps.package.outputs.version }}
                   files: zeppelin-interpreter/**.jar
                   fail_on_unmatched_files: true
             - if: ${{ failure() }}
@@ -74,7 +71,6 @@ jobs:
                       - Branch: `${{ github.ref }}`
                       - Commit: ${{ github.sha }}
                       - Workflow Path: `${{ github.workflow_ref }}`
-                      - zeppelin-interpreter version: ${{ steps.package.outputs.version }}
                       - iginx version: ${{ steps.iginx.outputs.version }}
 
                       - [ ] **Task**: Review failed run, fix the issue(s), and re-run until successful.
