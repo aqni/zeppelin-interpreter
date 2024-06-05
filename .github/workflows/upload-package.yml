@@ -42,7 +42,8 @@ jobs:
                     -DskipTests=true \
                     -D"iginx.version=${{ steps.iginx.outputs.version }}" \
                     -P get-jar-with-dependencies \
-                    -P !format
+                    -P !format \
+                    -P !github-repo
                   VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
             - name: Create Release

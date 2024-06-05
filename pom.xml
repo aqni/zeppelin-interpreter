@@ -40,15 +40,18 @@
         </dependency>
     </dependencies>
 
-    <repositories>
-        <repository>
-            <id>IGinX</id>
-            <name>IGinX Maven Repository on Github</name>
-            <url>https://iginx-thu.github.io/IGinX/maven-repo/</url>
-        </repository>
-    </repositories>
 
     <profiles>
+        <profile>
+            <id>github-repo</id>
+            <repositories>
+                <repository>
+                    <id>IGinX</id>
+                    <name>IGinX Maven Repository on Github</name>
+                    <url>https://iginx-thu.github.io/IGinX/maven-repo/</url>
+                </repository>
+            </repositories>
+        </profile>
         <profile>
             <id>get-jar-with-dependencies</id>
             <build>
