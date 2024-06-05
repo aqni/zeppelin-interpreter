@@ -12,12 +12,12 @@ jobs:
         steps:
             - uses: actions/checkout@v4
               with:
-                repository: IGinX-THU/IGinX
-                ref: main
-                path: iginx
+                  repository: IGinX-THU/IGinX
+                  ref: main
+                  path: iginx
             - uses: actions/checkout@v4
               with:
-                path: zeppelin-interpreter
+                  path: zeppelin-interpreter
             - uses: actions/setup-java@v4
               with:
                   java-version: "8"
@@ -62,10 +62,21 @@ jobs:
               name: report failure to issue
               uses: dacbd/create-issue-action@main
               with:
+                  token: ${{ github.token }}
                   title: Auto build failed for commit ${{github.sha}}
                   body: |
-                      build date: ${{ steps.iginx.outputs.date }}
-                      branch: ${{ github.ref }}
-                      zeppelin-interpreter version: ${{ steps.package.outputs.version }}
-                      iginx version: ${{ steps.iginx.outputs.version }}
-                      Please check the logs of workflow ${{ github.run_id }} for more information.
+                      ## Failure Report:
+
+                      > [!IMPORTANT]
+                      > Details on failed run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+                      - Author: @${{ github.triggering_actor }}
+                      - Branch: `${{ github.ref }}`
+                      - Commit: ${{ github.sha }}
+                      - Workflow Path: `${{ github.workflow_ref }}`
+                      - zeppelin-interpreter version: ${{ steps.package.outputs.version }}
+                      - iginx version: ${{ steps.iginx.outputs.version }}
+
+                      - [ ] **Task**: Review failed run, fix the issue(s), and re-run until successful.
+
+                      > This issue was created automatically by GitHub, please do not close it until the issue is resolved.
