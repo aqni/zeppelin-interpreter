@@ -53,7 +53,7 @@ jobs:
                       build date: ${{ steps.iginx.outputs.date }}
                       branch: ${{ github.ref }}
                       iginx version: ${{ steps.iginx.outputs.version }}
-                  files: zeppelin-interpreter/**.jar
+                  files: zeppelin-interpreter/target/*.jar
                   fail_on_unmatched_files: true
             - if: ${{ failure() }}
               name: report failure to issue
