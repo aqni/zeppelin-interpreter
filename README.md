@@ -95,6 +95,19 @@ export JAVA_HOME=
 
 即可启动Zeppelin。
 
+#### 常见问题
+
+##### Windows上启动时出现警告日志 
+
+```
+java.io.FileNotFoundException: C:\Zeppelin\zeppelin-web-angular\dist
+```
+参考[这个问答](https://stackoverflow.com/questions/61078714/apache-zeppelin-not-loading-in-a-browser-in-windows-10)解决。
+
+#### Windows上运行，解释器抛出 java.lang.ArrayIndexOutOfBoundsException
+
+参考[这个issue](https://github.com/apache/iotdb/issues/3417)
+
 ### 方法2：通过Docker部署
 
 Zeppelin也可以通过docker部署，但通过docker部署后，再修改配置文件、将IGinX-Zeppelin解释器加入都较为麻烦，因此还是推荐第一种做法。

@@ -4,8 +4,7 @@ import static cn.edu.tsinghua.iginx.utils.FileUtils.exportByteStream;
 import static org.apache.zeppelin.iginx.SimpleFileServer.getLocalHostExactAddress;
 
 import cn.edu.tsinghua.iginx.constant.GlobalConstant;
-import cn.edu.tsinghua.iginx.exceptions.ExecutionException;
-import cn.edu.tsinghua.iginx.exceptions.SessionException;
+import cn.edu.tsinghua.iginx.exception.SessionException;
 import cn.edu.tsinghua.iginx.session.QueryDataSet;
 import cn.edu.tsinghua.iginx.session.Session;
 import cn.edu.tsinghua.iginx.session.SessionExecuteSqlResult;
@@ -274,11 +273,10 @@ public class IginxInterpreter extends AbstractInterpreter {
    * @param originOutfilePath 原始的outfile路径
    * @return InterpreterResult
    * @throws SessionException
-   * @throws ExecutionException
    * @throws IOException
    */
   private InterpreterResult processOutfileSql(String sql, String originOutfilePath)
-      throws SessionException, ExecutionException, IOException {
+      throws SessionException, IOException {
 
     // 根据当前年月日时分秒毫秒生成outfile的文件夹名，将文件下载到此处
     String dateDir = new Date().toString().replace(" ", "-").replace(":", "-");
@@ -364,11 +362,9 @@ public class IginxInterpreter extends AbstractInterpreter {
    *
    * @param res QueryDataSet
    * @throws SessionException
-   * @throws ExecutionException
    * @throws IOException
    */
-  private void processExportByteStream(QueryDataSet res)
-      throws SessionException, ExecutionException, IOException {
+  private void processExportByteStream(QueryDataSet res) throws SessionException, IOException {
     String dir = res.getExportStreamDir();
 
     File dirFile = new File(dir);
@@ -427,10 +423,9 @@ public class IginxInterpreter extends AbstractInterpreter {
    * @param queryDataSet QueryDataSet
    * @return 缓存结果
    * @throws SessionException
-   * @throws ExecutionException
    */
   private List<List<byte[]>> cacheResultByteArray(QueryDataSet queryDataSet)
-      throws SessionException, ExecutionException {
+      throws SessionException {
     List<List<byte[]>> cache = new ArrayList<>();
     int rowIndex = 0;
     while (queryDataSet.hasMore() && rowIndex < Integer.parseInt(fetchSize)) {
@@ -638,7 +633,9 @@ public class IginxInterpreter extends AbstractInterpreter {
   }
 
   private String convertToHTMLString(String str) {
-    return "%html" + str.replace("\n", "<br>").replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;");
+    return str.contains("\n")
+        ? "%html" + str.replace("\n", "<br>").replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
+        : str;
   }
 
   /**
