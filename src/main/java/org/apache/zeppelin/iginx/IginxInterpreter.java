@@ -10,8 +10,10 @@ import cn.edu.tsinghua.iginx.session.Session;
 import cn.edu.tsinghua.iginx.session.SessionExecuteSqlResult;
 import cn.edu.tsinghua.iginx.thrift.SqlType;
 import cn.edu.tsinghua.iginx.utils.FormatUtils;
+import cn.edu.tsinghua.iginx.utils.Pair;
 import java.io.*;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.nio.file.*;
 import java.security.InvalidParameterException;
 import java.util.*;
@@ -23,6 +25,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import org.apache.commons.io.FileUtils;
 import org.apache.zeppelin.interpreter.*;
 
 public class IginxInterpreter extends AbstractInterpreter {
@@ -223,6 +226,10 @@ public class IginxInterpreter extends AbstractInterpreter {
         return processOutfileSql(sql, matcher.group(1));
       }
 
+      if (isLoadDataFromCsv(sql.toLowerCase())) {
+        return processLoadCsv(sql);
+      }
+
       SessionExecuteSqlResult sqlResult = session.executeSql(sql);
 
       String parseErrorMsg = sqlResult.getParseErrorMsg();
@@ -264,6 +271,53 @@ public class IginxInterpreter extends AbstractInterpreter {
           InterpreterResult.Code.ERROR,
           "encounter error when executing sql statement:\n" + e.getMessage());
     }
+  }
+
+  private static boolean isLoadDataFromCsv(String sql) {
+    return sql.startsWith("load data from infile ") && sql.contains("as csv");
+  }
+
+  /**
+   * 处理 load data from csv语句，可使用的文件是客户端本地文件
+   *
+   * @param sql load csv 语句
+   * @throws SessionException
+   * @throws IOException
+   */
+  private InterpreterResult processLoadCsv(String sql) throws SessionException, IOException {
+    String msg;
+    InterpreterResult interpreterResult;
+
+    SessionExecuteSqlResult res = session.executeSql(sql);
+    String path = res.getLoadCsvPath();
+
+    String parseErrorMsg = res.getParseErrorMsg();
+    if (parseErrorMsg != null && !parseErrorMsg.isEmpty()) {
+      msg = "Error: " + res.getParseErrorMsg();
+      interpreterResult = new InterpreterResult(InterpreterResult.Code.ERROR, msg);
+
+      return interpreterResult;
+    }
+
+    File file = new File(path);
+    if (!file.exists()) {
+      throw new InvalidParameterException(path + " does not exist!");
+    }
+    if (!file.isFile()) {
+      throw new InvalidParameterException(path + " is not a file!");
+    }
+
+    byte[] bytes = FileUtils.readFileToByteArray(file);
+    ByteBuffer csvFile = ByteBuffer.wrap(bytes);
+    Pair<List<String>, Long> pair = session.executeLoadCSV(sql, csvFile);
+    List<String> columns = pair.k;
+    long recordsNum = pair.v;
+
+    msg = "Successfully write " + recordsNum + " record(s) to: " + columns;
+    interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
+    interpreterResult.add(InterpreterResult.Type.TEXT, msg);
+
+    return interpreterResult;
   }
 
   /**
