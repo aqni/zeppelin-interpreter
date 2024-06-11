@@ -281,6 +281,14 @@ public class IginxInterpreter extends AbstractInterpreter {
     // 根据当前年月日时分秒毫秒生成outfile的文件夹名，将文件下载到此处
     String dateDir = new Date().toString().replace(" ", "-").replace(":", "-");
     String outfileDirPath = Paths.get(outfileDir, dateDir).toString();
+    File outfileFolder = new File(outfileDirPath);
+    if (!outfileFolder.exists()) {
+      outfileFolder.mkdirs();
+    }
+
+    if (!outfileFolder.isDirectory()) {
+      throw new IOException(String.format("Path %s is supposed to be a dir.", outfileDirPath));
+    }
 
     // 替换sql中最后一个outfile关键词，替换文件路径为Zeppelin在服务端指定的路径
     Pattern pattern = Pattern.compile(outfileRegex);
@@ -294,8 +302,8 @@ public class IginxInterpreter extends AbstractInterpreter {
       // 替换最后一个匹配的路径
       sql =
           sql.substring(0, lastMatchEnd)
-              + sql.substring(lastMatchEnd)
-                  .replaceFirst(outfileRegex, "$1" + outfileDirPath + "$3");
+              + sql.substring(lastMatchEnd) // on windows, '\' in path needs to be replaced by "\\".
+                  .replaceFirst(outfileRegex, "$1" + outfileDirPath.replace("\\", "\\\\") + "$3");
     }
 
     QueryDataSet res = session.executeQuery(sql);
@@ -303,7 +311,6 @@ public class IginxInterpreter extends AbstractInterpreter {
     processExportByteStream(res);
 
     // 获取outfileDirPath文件夹下的所有文件名，只有一级，不需要递归
-    File outfileFolder = new File(outfileDirPath);
     String[] fileNames = outfileFolder.list();
 
     // 如果有多个文件，压缩outfileDirPath文件夹
