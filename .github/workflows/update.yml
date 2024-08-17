@@ -1,4 +1,4 @@
-name: Automated Update Submodule and Release
+name: Update Submodule
 
 on:
   workflow_dispatch:
