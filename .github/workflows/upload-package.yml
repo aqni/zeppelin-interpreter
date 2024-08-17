@@ -1,0 +1,32 @@
+name: Release Binary
+
+on:
+  release:
+    types:
+      - published
+      - created
+      - prereleased
+      - released
+      - edited
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+  upload-package:
+    name: Upload Package to Github Release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - uses: actions/download-artifact@v4
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          file: "zeppelin-iginx/*.jar"
+          file_glob: true
+      - uses: actions/checkout@v4
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          file: README.md
+          asset_name: tutorial.md
