@@ -5,181 +5,106 @@
 
     <groupId>cn.edu.tsinghua</groupId>
     <artifactId>zeppelin-iginx</artifactId>
-    <version>0.8.0-SNAPSHOT</version>
+    <version>${revision}</version>
 
     <packaging>jar</packaging>
     <name>Zeppelin on IGinX</name>
 
     <properties>
-        <iginx.version>0.8.0-SNAPSHOT</iginx.version>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <revision>0.8.0-SNAPSHOT</revision>
+        <skipTests>true</skipTests>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.zeppelin</groupId>
             <artifactId>zeppelin-interpreter</artifactId>
-            <version>0.10.1</version>
+            <version>0.8.2</version>
             <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.thrift</groupId>
-                    <artifactId>libthrift</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>cn.edu.tsinghua</groupId>
             <artifactId>iginx-session</artifactId>
-            <version>${iginx.version}</version>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.3</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
-    <profiles>
-        <profile>
-            <id>github-repo</id>
-            <repositories>
-                <repository>
-                    <id>IGinX</id>
-                    <name>IGinX Maven Repository on Github</name>
-                    <url>https://iginx-thu.github.io/IGinX/maven-repo/</url>
-                </repository>
-            </repositories>
-        </profile>
-        <profile>
-            <id>get-jar-with-dependencies</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <artifactId>maven-assembly-plugin</artifactId>
-                        <version>3.1.0</version>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>1.5.0</version>
+                <configuration>
+                    <outputDirectory>${project.build.directory}</outputDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                        <phase>process-resources</phase>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <phase>clean</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <phase>package</phase>
                         <configuration>
-                            <descriptorRefs>
-                                <descriptorRef>jar-with-dependencies</descriptorRef>
-                            </descriptorRefs>
+                            <minimizeJar>true</minimizeJar>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
-                        <executions>
-                            <execution>
-                                <id>make-assembly</id>
-                                <!-- bind to the packaging phase -->
-                                <goals>
-                                    <goal>single</goal>
-                                </goals>
-                                <!-- this is used for inheritance merges -->
-                                <phase>package</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>format</id>
-            <build>
-                <plugins>
-                    <!--对项目中的文件进行格式化-->
-                    <plugin>
-                        <groupId>com.diffplug.spotless</groupId>
-                        <artifactId>spotless-maven-plugin</artifactId>
-                        <version>2.30.0</version>
-                        <configuration>
-                            <java>
-                                <toggleOffOn/>
-                                <importOrder/>
-                                <removeUnusedImports/>
-                                <trimTrailingWhitespace/>
-                                <googleJavaFormat>
-                                    <version>1.7</version>
-                                    <style>GOOGLE</style>
-                                </googleJavaFormat>
-                            </java>
-                            <python>
-                                <includes>
-                                    <include>**/*.py</include>
-                                </includes>
-                            </python>
-                            <antlr4>
-                                <includes>
-                                    <include>**/*.g4</include>
-                                </includes>
-                                <antlr4Formatter>
-                                    <version>1.2.1</version>
-                                </antlr4Formatter>
-                            </antlr4>
-                            <sql>
-                                <includes>
-                                    <include>**/*.sql</include>
-                                </includes>
-                                <!--prettier/>
-                                <dbeaver/-->
-                            </sql>
-                            <yaml>
-                                <includes>
-                                    <include>**/*.yml</include>
-                                    <include>**/*.yaml</include>
-                                </includes>
-                                <excludes>
-                                    <exclude>.github/**/*.yml</exclude>
-                                    <exclude>**/target/**/*.yml</exclude>
-                                </excludes>
-                            </yaml>
-                            <formats>
-                                <format>
-                                    <includes>
-                                        <include>.github/**/*.yml</include>
-                                    </includes>
-                                    <prettier>
-                                        <prettierVersion>1.19.0</prettierVersion>
-                                        <config>
-                                            <tabWidth>4</tabWidth>
-                                            <useTabs>true</useTabs>
-                                        </config>
-                                    </prettier>
-                                </format>
-                            </formats>
-                            <markdown>
-                                <includes>
-                                    <include>**/*.md</include>
-                                </includes>
-                                <excludes>
-                                    <exclude>**/target/**/*.md</exclude>
-                                </excludes>
-                                <flexmark/>
-                            </markdown>
-                            <pom>
-                                <includes>
-                                    <include>pom.xml</include>
-                                </includes>
-                                <sortPom>
-                                    <encoding>UTF-8</encoding>
-                                    <keepBlankLines>true</keepBlankLines>
-                                    <nrOfIndentSpace>4</nrOfIndentSpace>
-                                    <indentBlankLines>false</indentBlankLines>
-                                    <indentSchemaLocation>true</indentSchemaLocation>
-                                    <expandEmptyElements>false</expandEmptyElements>
-                                    <sortProperties>true</sortProperties>
-                                </sortPom>
-                            </pom>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>apply</goal>
-                                    <!--goal>check</goal-->
-                                </goals>
-                                <phase>initialize</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.coveo</groupId>
+                <artifactId>fmt-maven-plugin</artifactId>
+                <version>2.9.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>format</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
 
 </project>
