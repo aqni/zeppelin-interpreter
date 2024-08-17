@@ -1,0 +1,34 @@
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  sync-submodule:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mheap/submodule-sync-action@v1
+        with:
+          path: iginx
+          ref: main
+          pr_branch: automated-submodule-update
+          target_branch: main
+  create-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    needs:
+      - submodule-sync
+    steps:
+      - id: info
+        run: |
+          DATE=$(date +%Y%m%d%H%M%S)
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+      - uses: ncipollo/release-action@v1
+        with:
+          name: Automated release ${{ steps.info.outputs.date }}
+          commit: automated-submodule-update
+          tag: v${{ steps.info.outputs.date }}
+          prerelease: true
+          generateReleaseNotes: true
+          skipIfReleaseExists: true

@@ -28,7 +28,7 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.zeppelin.interpreter.*;
 
-public class IginxInterpreter extends AbstractInterpreter {
+public class IginxInterpreter extends Interpreter {
 
   private static final String IGINX_HOST = "iginx.host";
   private static final String IGINX_PORT = "iginx.port";
@@ -77,7 +77,8 @@ public class IginxInterpreter extends AbstractInterpreter {
   private Queue<Double> downloadFileSizeQueue = new LinkedList<>();
   private double downloadFileTotalSize = 0L;
 
-  private String outfileRegex = "(?i)(\\bINTO\\s+OUTFILE\\s+\")(.*?)(\"\\s+AS\\s+STREAM)(?:\\s+showimg\\s+(true|false))?\\s*;$";
+  private String outfileRegex =
+      "(?i)(\\bINTO\\s+OUTFILE\\s+\")(.*?)(\"\\s+AS\\s+STREAM)(?:\\s+showimg\\s+(true|false))?\\s*;$";
 
   private static Map<String, CompletableFuture<InterpreterResult>> taskMap =
       new ConcurrentHashMap<>();
@@ -99,11 +100,6 @@ public class IginxInterpreter extends AbstractInterpreter {
 
   public IginxInterpreter(Properties properties) {
     super(properties);
-  }
-
-  @Override
-  public ZeppelinContext getZeppelinContext() {
-    return null;
   }
 
   @Override
@@ -160,7 +156,7 @@ public class IginxInterpreter extends AbstractInterpreter {
   }
 
   @Override
-  public InterpreterResult internalInterpret(String st, InterpreterContext context)
+  public InterpreterResult interpret(String st, InterpreterContext context)
       throws InterpreterException {
     if (exception != null) {
       return new InterpreterResult(InterpreterResult.Code.ERROR, exception.getMessage());
@@ -219,17 +215,16 @@ public class IginxInterpreter extends AbstractInterpreter {
   private InterpreterResult processSql(String sql) {
     try {
       // 如果sql中有outfile关键字，则进行特殊处理，将结果下载到zeppelin所在的服务器上，并在表单中返回下载链接
-      String outfileRegex = "(?i)\\bINTO\\s+OUTFILE\\s+\"(.*?)\"\\s+AS\\s+STREAM(?:\\s+showimg\\s+(true|false))?\\s*;$";
+      String outfileRegex =
+          "(?i)\\bINTO\\s+OUTFILE\\s+\"(.*?)\"\\s+AS\\s+STREAM(?:\\s+showimg\\s+(true|false))?\\s*;$";
       Pattern pattern = Pattern.compile(outfileRegex);
       Matcher matcher = pattern.matcher(sql.toLowerCase());
       if (matcher.find()) {
-        if(matcher.group(2) != null)
-          if(matcher.group(2).equals("true"))
+        if (matcher.group(2) != null)
+          if (matcher.group(2).equals("true"))
             return processOutfileSql(sql, matcher.group(1), true);
-          else
-            return processOutfileSql(sql, matcher.group(1), false);
-        else
-          return processOutfileSql(sql, matcher.group(1), false);
+          else return processOutfileSql(sql, matcher.group(1), false);
+        else return processOutfileSql(sql, matcher.group(1), false);
       }
       if (isLoadDataFromCsv(sql.toLowerCase())) {
         return processLoadCsv(sql);
@@ -395,17 +390,19 @@ public class IginxInterpreter extends AbstractInterpreter {
     clearNGINXStaticFiles();
 
     InterpreterResult interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
-    if(showimg){
+    if (showimg) {
       if (fileNames != null) {
-        String[] IMAGE_EXTENSIONS = { "jpg", "jpeg", "png", "gif", "bmp", "tiff" };
+        String[] IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "bmp", "tiff"};
         for (String fileName : fileNames) {
           for (String ext : IMAGE_EXTENSIONS) {
             if (fileName.endsWith("." + ext)) {
               byte[] imageBytes = Files.readAllBytes(Paths.get(outfileDirPath + "/" + fileName));
               String base64Image = Base64.getEncoder().encodeToString(imageBytes);
-              
-              interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.TEXT,fileName));
-              interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.IMG, base64Image));
+
+              interpreterResult.add(
+                  new InterpreterResultMessage(InterpreterResult.Type.TEXT, fileName));
+              interpreterResult.add(
+                  new InterpreterResultMessage(InterpreterResult.Type.IMG, base64Image));
               break;
             }
           }
