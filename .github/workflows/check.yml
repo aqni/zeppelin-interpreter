@@ -2,6 +2,13 @@ name: check
 
 on:
   pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - auto_merge_disabled
+      - ready_for_review
+      - auto_merge_enabled
 
 jobs:
   build:
