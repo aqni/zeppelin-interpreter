@@ -86,7 +86,13 @@ jobs:
       - name: enable PR auto merge
         if: inputs.auto-merge && steps.pr.outputs.pull-request-operation == 'created'
         run: |
-          gh pr merge --auto --squash --delete-branch "${{ steps.cpr.outputs.pull-request-number }}"
+          gh pr merge --auto --squash --delete-branch "${{ steps.pr.outputs.pull-request-number }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # TODO:
+      # Note that if you use the default GITHUB_TOKEN, as in the example,
+      # the merge will not trigger further workflow runs. If you want to
+      # trigger further workflow runs, you will need to use a repo scoped
+      # Personal Access Token (PAT).
+      # Detail: https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow
 
