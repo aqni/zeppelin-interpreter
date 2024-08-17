@@ -1,0 +1,93 @@
+name: update
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "The URL of the submodule"
+        required: false
+        type: string
+        default: "https://github.com/IGinX-THU/IGinX"
+      branch:
+        description: "The branch of the submodule"
+        required: false
+        type: string
+        default: "main"
+      commit:
+        description: "The commit of the submodule"
+        required: false
+        type: string
+        default: "origin/HEAD"
+      auto-merge:
+        description: "Whether to enable PR auto merge"
+        required: false
+        type: boolean
+        default: true
+      title:
+        description: "The title of the PR"
+        required: false
+        type: string
+        default: "chore: update IGinX"
+
+env:
+  SUBMODULE_PATH: iginx
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "8"
+          distribution: "temurin"
+          cache: "maven"
+      - name: remove submodule
+        run: |
+          git submodule deinit -f $SUBMODULE_PATH
+          git rm -f $SUBMODULE_PATH
+          rm -rf .git/modules/$SUBMODULE_PATH
+      - name: add submodule
+        run: |
+          git submodule add -b ${{ inputs.branch }} ${{ inputs.url }} $SUBMODULE_PATH
+      - name: reset submodule
+        working-directory: ${{ env.SUBMODULE_PATH }}
+        run: |
+          git reset --hard ${{ inputs.commit }}
+      - id: iginx
+        uses: ./.github/actions/project
+        with:
+          workspace: ${{ env.SUBMODULE_PATH }}
+      - name: set interpreter revision
+        run: |
+          mvn versions:set -DnewVersion=${{ steps.iginx.outputs.version }} -DgenerateBackupPoms=false
+      - name: create PR
+        id: pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: |
+            $SUBMODULE_PATH
+            .gitmodules
+            pom.xml
+          commit-message: ${{ inputs.title }}
+          title: ${{ inputs.title }}
+          body: |
+            This PR updates the IGinX submodule to version ${{ steps.iginx.outputs.version }}.
+            Submodule URL: ${{ inputs.url }}
+            Submodule Branch: ${{ inputs.branch }}
+            Submodule Commit: ${{ inputs.commit }}
+          branch: bot/update-iginx
+          branch-suffix: timestamp
+          delete-branch: true
+      - name: enable PR auto merge
+        if: inputs.auto-merge && steps.pr.outputs.pull-request-operation == 'created'
+        run: |
+          gh pr merge --auto --squash --delete-branch "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
