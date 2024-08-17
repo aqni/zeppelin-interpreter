@@ -1,4 +1,4 @@
-name: Upload Binaries to Github Release
+name: Release Binary
 
 on:
   release:
@@ -7,6 +7,7 @@ on:
       - created
       - prereleased
       - released
+      - edited
 
 jobs:
   build:
