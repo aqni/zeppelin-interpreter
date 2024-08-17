@@ -1,10 +1,9 @@
 name: Upload Binaries to Github Release
 
 on:
-  release:
-    types:
-      - published
-      - created
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
