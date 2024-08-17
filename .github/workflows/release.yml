@@ -24,7 +24,6 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: zeppelin-iginx
-      - uses: actions/checkout@v4
       - uses: ncipollo/release-action@v1
         with:
           name: Automated Release ${{ github.run_id }}
@@ -32,7 +31,6 @@ jobs:
           tag: v${{ github.run_id }}
           artifacts: |
             *.jar
-            README.md
           prerelease: true
           allowUpdates: true
           generateReleaseNotes: true
