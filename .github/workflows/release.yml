@@ -4,8 +4,7 @@ on:
   pull_request:
     types:
       - closed
-    branches:
-      - main
+      - auto_merge_enabled
 
 jobs:
   build:

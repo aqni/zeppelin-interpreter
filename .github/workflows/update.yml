@@ -86,7 +86,7 @@ jobs:
       - name: enable PR auto merge
         if: inputs.auto-merge && steps.pr.outputs.pull-request-operation == 'created'
         run: |
-          gh pr merge --auto --squash --delete-branch "${{ steps.cpr.outputs.pull-request-number }}"
+          gh pr merge --auto --squash --delete-branch "${{ steps.pr.outputs.pull-request-number }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
