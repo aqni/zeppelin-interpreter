@@ -26,14 +26,15 @@ jobs:
           java-version: "8"
           distribution: "temurin"
           cache: "maven"
-      - id: project
+      - name: get project info
+        id: project
         uses: ./.github/actions/project
       - uses: actions/download-artifact@v4
         with:
           name: zeppelin-iginx
       - uses: ncipollo/release-action@v1
         with:
-          name: Zeppelin interpreter v${{ github.run_id }} for IGinX ${{ steps.project.outputs.version }}
+          name: Zeppelin interpreter for IGinX ${{ steps.project.outputs.version }}
           commit: main
           tag: v${{ github.run_id }}
           artifacts: "*.jar"

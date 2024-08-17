@@ -6,30 +6,25 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: "The URL of the submodule"
-        required: false
+        description: "The URL of IGinX submodule"
         type: string
         default: "https://github.com/IGinX-THU/IGinX"
       branch:
-        description: "The branch of the submodule"
-        required: false
+        description: "The branch of the IGinX submodule"
         type: string
         default: "main"
       commit:
-        description: "The commit of the submodule"
-        required: false
+        description: "The commit of the IGinX submodule"
         type: string
         default: "origin/HEAD"
-      auto-merge:
-        description: "Whether to enable PR auto merge"
-        required: false
-        type: boolean
-        default: true
       title:
         description: "The title of the PR"
-        required: false
         type: string
         default: "chore: update IGinX"
+      auto-merge:
+        description: "Whether to enable PR auto merge"
+        type: boolean
+        default: true
 
 env:
   SUBMODULE_PATH: iginx
@@ -42,6 +37,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           java-version: "8"
@@ -49,17 +47,18 @@ jobs:
           cache: "maven"
       - name: remove submodule
         run: |
-          git submodule deinit -f $SUBMODULE_PATH
-          git rm -f $SUBMODULE_PATH
-          rm -rf .git/modules/$SUBMODULE_PATH
+          git submodule deinit -f ${{ env.SUBMODULE_PATH }}
+          git rm -f ${{ env.SUBMODULE_PATH }}
+          rm -rf .git/modules/${{ env.SUBMODULE_PATH }}
       - name: add submodule
         run: |
-          git submodule add -b ${{ inputs.branch }} ${{ inputs.url }} $SUBMODULE_PATH
+          git submodule add -b ${{ inputs.branch }} ${{ inputs.url }} ${{ env.SUBMODULE_PATH }}
       - name: reset submodule
         working-directory: ${{ env.SUBMODULE_PATH }}
         run: |
           git reset --hard ${{ inputs.commit }}
-      - id: iginx
+      - name: get project info
+        id: iginx
         uses: ./.github/actions/project
         with:
           workspace: ${{ env.SUBMODULE_PATH }}
@@ -71,7 +70,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           add-paths: |
-            $SUBMODULE_PATH
+            ${{ env.SUBMODULE_PATH }}
             .gitmodules
             pom.xml
           commit-message: ${{ inputs.title }}
