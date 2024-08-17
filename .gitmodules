@@ -1,0 +1,4 @@
+[submodule "iginx"]
+	path = iginx
+	url = https://github.com/IGinX-THU/IGinX
+	branch = main
