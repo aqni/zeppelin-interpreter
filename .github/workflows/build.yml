@@ -4,7 +4,9 @@ on:
   workflow_dispatch:
   workflow_call:
     outputs:
-      artifact-url: ${{ jobs.build.outputs.artifact-url }}
+      artifact-url:
+        description: "The URL of the built artifact"
+        value: ${{ jobs.build.outputs.artifact-url }}
 
 jobs:
   build:
