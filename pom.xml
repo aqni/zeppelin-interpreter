@@ -5,7 +5,7 @@
 
     <groupId>cn.edu.tsinghua</groupId>
     <artifactId>zeppelin-iginx</artifactId>
-    <version>${revision}</version>
+    <version>0.8.0-SNAPSHOT</version>
 
     <packaging>jar</packaging>
     <name>Zeppelin on IGinX</name>
@@ -14,7 +14,6 @@
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <revision>0.8.0-SNAPSHOT</revision>
         <skipTests>true</skipTests>
     </properties>
 
@@ -28,7 +27,7 @@
         <dependency>
             <groupId>cn.edu.tsinghua</groupId>
             <artifactId>iginx-session</artifactId>
-            <version>${revision}</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
