@@ -1,17 +1,18 @@
 name: release
 
 on:
+  workflow_dispatch:
   pull_request:
     types:
       - closed
 
 jobs:
   build:
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/build.yml
 
   create-release:
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
     runs-on: ubuntu-latest
