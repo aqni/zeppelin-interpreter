@@ -1,0 +1,25 @@
+name: release
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  upload:
+    permissions:
+      contents: write
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: zeppelin-iginx
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          file: "*.jar"
+          file_glob: true

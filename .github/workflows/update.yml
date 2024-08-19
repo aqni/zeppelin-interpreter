@@ -1,0 +1,95 @@
+name: update
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "The URL of IGinX submodule"
+        type: string
+        default: "https://github.com/IGinX-THU/IGinX"
+      branch:
+        description: "The branch of the IGinX submodule"
+        type: string
+        default: "main"
+      commit:
+        description: "The commit of the IGinX submodule"
+        type: string
+        default: "origin/HEAD"
+      title:
+        description: "The title of the PR"
+        type: string
+        default: "chore: update IGinX"
+      auto-merge:
+        description: "Whether to enable PR auto merge"
+        type: boolean
+        default: false
+
+env:
+  SUBMODULE_PATH: iginx
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "8"
+          distribution: "temurin"
+          cache: "maven"
+      - name: remove submodule
+        run: |
+          git submodule deinit -f ${{ env.SUBMODULE_PATH }}
+          git rm -f ${{ env.SUBMODULE_PATH }}
+          rm -rf .git/modules/${{ env.SUBMODULE_PATH }}
+      - name: add submodule
+        run: |
+          git submodule add -b ${{ inputs.branch }} ${{ inputs.url }} ${{ env.SUBMODULE_PATH }}
+      - name: reset submodule
+        working-directory: ${{ env.SUBMODULE_PATH }}
+        run: |
+          git reset --hard ${{ inputs.commit }}
+      - name: get project info
+        id: iginx
+        uses: ./.github/actions/project
+        with:
+          workspace: ${{ env.SUBMODULE_PATH }}
+      - name: set interpreter revision
+        run: |
+          mvn versions:set -DnewVersion=${{ steps.iginx.outputs.version }} -DgenerateBackupPoms=false
+      - name: create PR
+        id: pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: |
+            ${{ env.SUBMODULE_PATH }}
+            .gitmodules
+            pom.xml
+          commit-message: ${{ inputs.title }}
+          title: ${{ inputs.title }}
+          body: |
+            This PR updates the IGinX submodule to version ${{ steps.iginx.outputs.version }}.
+            Submodule URL: ${{ inputs.url }}
+            Submodule Branch: ${{ inputs.branch }}
+            Submodule Commit: ${{ inputs.commit }}
+          branch: bot/update-iginx
+          delete-branch: true
+      - name: enable PR auto merge
+        if: inputs.auto-merge && steps.pr.outputs.pull-request-operation == 'created'
+        run: |
+          gh pr merge --auto --squash --delete-branch "${{ steps.pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # TODO:
+      # Note that if you use the default GITHUB_TOKEN, as in the example,
+      # the merge will not trigger further workflow runs. If you want to
+      # trigger further workflow runs, you will need to use a repo scoped
+      # Personal Access Token (PAT).
+      # Detail: https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+
