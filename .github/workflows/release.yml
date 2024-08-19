@@ -24,9 +24,6 @@ jobs:
       - name: get project info
         id: project
         uses: ./.github/actions/project
-      - uses: actions/download-artifact@v4
-        with:
-          name: zeppelin-iginx
       - uses: ncipollo/release-action@v1
         with:
           name: Zeppelin interpreter for IGinX ${{ steps.project.outputs.version }}
