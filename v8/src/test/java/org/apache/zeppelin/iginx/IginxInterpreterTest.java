@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class IginxInterpreterTest {
 
-  private final IginxInterpreter interpreter = new IginxInterpreter(new Properties());
+  private final IginxInterpreter8 interpreter = new IginxInterpreter8(new Properties());
   private final InterpreterContext context =
       new InterpreterContext(
           "noteId",

@@ -6,90 +6,47 @@
     <groupId>cn.edu.tsinghua</groupId>
     <artifactId>zeppelin-iginx</artifactId>
     <version>0.8.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
 
-    <packaging>jar</packaging>
-    <name>Zeppelin on IGinX</name>
+    <modules>
+        <module>v8</module>
+        <module>v11</module>
+    </modules>
+
+    <name>Zeppelin Interpreter for IGinX</name>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <skipTests>true</skipTests>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.apache.zeppelin</groupId>
-            <artifactId>zeppelin-interpreter</artifactId>
-            <version>0.8.2</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>cn.edu.tsinghua</groupId>
-            <artifactId>iginx-session</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>5.10.3</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.5.1</version>
+                    <configuration>
+                        <minimizeJar>true</minimizeJar>
+                        <shadedArtifactAttached>true</shadedArtifactAttached>
+                        <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml
+                        </dependencyReducedPomLocation>
+                        <filters>
+                            <filter>
+                                <artifact>*:*</artifact>
+                                <excludes>
+                                    <exclude>META-INF/*</exclude>
+                                    <exclude>META-INF/versions/**</exclude>
+                                </excludes>
+                            </filter>
+                        </filters>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>flatten-maven-plugin</artifactId>
-                <version>1.5.0</version>
-                <configuration>
-                    <outputDirectory>${project.build.directory}</outputDirectory>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>flatten</id>
-                        <goals>
-                            <goal>flatten</goal>
-                        </goals>
-                        <phase>process-resources</phase>
-                    </execution>
-                    <execution>
-                        <id>flatten.clean</id>
-                        <goals>
-                            <goal>clean</goal>
-                        </goals>
-                        <phase>clean</phase>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <phase>package</phase>
-                        <configuration>
-                            <minimizeJar>true</minimizeJar>
-                            <shadedArtifactAttached>true</shadedArtifactAttached>
-                            <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*</exclude>
-                                        <exclude>META-INF/versions/**</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>com.coveo</groupId>
                 <artifactId>fmt-maven-plugin</artifactId>
@@ -104,6 +61,5 @@
             </plugin>
         </plugins>
     </build>
-
 
 </project>
