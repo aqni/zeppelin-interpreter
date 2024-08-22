@@ -27,5 +27,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: zeppelin-iginx
-          path: target/*.jar
+          path: "**/*-shaded.jar"
           if-no-files-found: error
