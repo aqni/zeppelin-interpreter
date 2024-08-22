@@ -13,7 +13,6 @@ import cn.edu.tsinghua.iginx.thrift.SqlType;
 import cn.edu.tsinghua.iginx.utils.FormatUtils;
 import cn.edu.tsinghua.iginx.utils.Pair;
 import java.io.*;
-import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.file.*;
 import java.security.InvalidParameterException;
@@ -29,7 +28,7 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.zeppelin.interpreter.*;
 
-public class IginxInterpreter extends Interpreter {
+public class IginxInterpreter8 extends Interpreter {
 
   private static final String IGINX_HOST = "iginx.host";
   private static final String IGINX_PORT = "iginx.port";
@@ -99,7 +98,7 @@ public class IginxInterpreter extends Interpreter {
           SqlType.GetReplicaNum,
           SqlType.ShowRegisterTask);
 
-  public IginxInterpreter(Properties properties) {
+  public IginxInterpreter8(Properties properties) {
     super(properties);
   }
 
