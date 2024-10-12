@@ -27,8 +27,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.zeppelin.interpreter.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class IginxInterpreter8 extends Interpreter {
+  private static final Logger LOGGER = LoggerFactory.getLogger(IginxInterpreter8.class);
 
   private static final String IGINX_HOST = "iginx.host";
   private static final String IGINX_PORT = "iginx.port";
@@ -41,6 +44,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String IGINX_OUTFILE_MAX_SIZE = "iginx.outfile.max.size";
   private static final String IGINX_FILE_HTTP_PORT = "iginx.http.file.port";
   private static final String IGINX_ZEPPELIN_IP = "iginx.zeppelin.ip";
+  private static final String IGINX_FILE_UPLOAD_DIR = "iginx.file.upload.dir";
 
   private static final String DEFAULT_HOST = "127.0.0.1";
   private static final String DEFAULT_PORT = "6888";
@@ -52,6 +56,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String DEFAULT_OUTFILE_MAX_NUM = "100";
   private static final String DEFAULT_OUTFILE_MAX_SIZE = "10240";
   private static final String DEFAULT_FILE_HTTP_PORT = "18082";
+  private static final String DEFAULT_FILE_UPLOAD_DIR = "/opt/module/zeppelin/uploads";
 
   private static final String TAB = "\t";
   private static final String NEWLINE = "\n";
@@ -71,6 +76,7 @@ public class IginxInterpreter8 extends Interpreter {
   private int outfileMaxNum = 0;
   private int outfileMaxSize = 0;
   private int fileHttpPort = 0;
+  private String uploadFileDir = "";
   private String localIpAddress = "";
 
   private Queue<String> downloadFileQueue = new LinkedList<>();
@@ -80,9 +86,10 @@ public class IginxInterpreter8 extends Interpreter {
   private String outfileRegex =
       "(?i)(\\bINTO\\s+OUTFILE\\s+\")(.*?)(\"\\s+AS\\s+STREAM)(?:\\s+showimg\\s+(true|false))?\\s*;$";
 
+  private static Set<String> uploadParagraphSet = new HashSet<>();
+
   private static Map<String, CompletableFuture<InterpreterResult>> taskMap =
       new ConcurrentHashMap<>();
-
   private Session session;
 
   private Exception exception;
@@ -120,7 +127,7 @@ public class IginxInterpreter8 extends Interpreter {
     fileHttpPort =
         Integer.parseInt(
             properties.getProperty(IGINX_FILE_HTTP_PORT, DEFAULT_FILE_HTTP_PORT).trim());
-
+    uploadFileDir = properties.getProperty(IGINX_FILE_UPLOAD_DIR, DEFAULT_FILE_UPLOAD_DIR).trim();
     localIpAddress = getLocalHostExactAddress();
     if (localIpAddress == null) {
       localIpAddress = "127.0.0.1";
@@ -135,7 +142,7 @@ public class IginxInterpreter8 extends Interpreter {
     }
 
     try {
-      fileServer = new SimpleFileServer(fileHttpPort, outfileDir);
+      fileServer = new SimpleFileServer(fileHttpPort, outfileDir, uploadFileDir);
       fileServer.start();
       loadNGINXStaticFilesInfo();
     } catch (IOException e) {
@@ -197,11 +204,11 @@ public class IginxInterpreter8 extends Interpreter {
         () -> {
           InterpreterResult interpreterResult = null;
           for (String cmd : sqlList) {
-            interpreterResult = processSql(cmd);
+            interpreterResult = processSql(cmd, context);
             if (isSessionClosedError(interpreterResult)) {
               if (reopenSession()) {
                 // 暂停，等待连接建立
-                interpreterResult = processSql(cmd);
+                interpreterResult = processSql(cmd, context);
               } else {
                 interpreterResult.add(
                     InterpreterResult.Type.TEXT,
@@ -215,7 +222,7 @@ public class IginxInterpreter8 extends Interpreter {
     return future;
   }
 
-  private InterpreterResult processSql(String sql) {
+  private InterpreterResult processSql(String sql, InterpreterContext context) {
     try {
       // 如果sql中有outfile关键字，则进行特殊处理，将结果下载到zeppelin所在的服务器上，并在表单中返回下载链接
       String outfileRegex =
@@ -230,7 +237,7 @@ public class IginxInterpreter8 extends Interpreter {
         else return processOutfileSql(sql, matcher.group(1), false);
       }
       if (isLoadDataFromCsv(sql.toLowerCase())) {
-        return processLoadCsv(sql);
+        return processLoadCsv(sql, context);
       } else if (isCreateFunction(sql.toLowerCase())) {
         return processCreateFunction(sql);
       }
@@ -293,10 +300,42 @@ public class IginxInterpreter8 extends Interpreter {
    * @throws SessionException
    * @throws IOException
    */
-  private InterpreterResult processLoadCsv(String sql) throws SessionException, IOException {
+  private InterpreterResult processLoadCsv(String sql, InterpreterContext context)
+      throws SessionException, IOException {
     String msg;
     InterpreterResult interpreterResult;
-
+    String uploadParagraphKey = context.getParagraphId() + "_UPLOAD_FILE";
+    //     response upload file form, user will rerun paragraph when upload finished.
+    if (!uploadParagraphSet.contains(uploadParagraphKey)) {
+      String httpPrefix =
+          "http://" + localIpAddress + ":" + fileHttpPort + SimpleFileServer.PREFIX + "/";
+      LOGGER.info("update csv file first " + httpPrefix);
+      try (InputStream inputStream =
+              IginxInterpreter8.class.getClassLoader().getResourceAsStream("uploadForm.html");
+          BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+        StringBuilder content = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+          content.append(line).append("\n");
+        }
+        String html = content.toString();
+        LOGGER.info(html);
+        //        html = "<h1>Hello from Zeppelin!</h1><p>This is some HTML content.</p>";
+        interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
+        interpreterResult.add(
+            new InterpreterResultMessage(
+                InterpreterResult.Type.HTML,
+                html.replace("UPLOAD_URL", ":" + fileHttpPort + SimpleFileServer.PREFIX_UPLOAD)));
+        uploadParagraphSet.add(uploadParagraphKey);
+        return interpreterResult;
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+      return new InterpreterResult(InterpreterResult.Code.ERROR);
+    } else {
+      uploadParagraphSet.remove(uploadParagraphKey);
+    }
+    LOGGER.info("load data sql execute");
     SessionExecuteSqlResult res = session.executeSql(sql);
     String path = res.getLoadCsvPath();
 
@@ -314,6 +353,10 @@ public class IginxInterpreter8 extends Interpreter {
     }
     if (!file.isFile()) {
       throw new InvalidParameterException(path + " is not a file!");
+    }
+    LOGGER.info("size=" + file.length());
+    if (file.length() > 1 * 1024 * 1024) {
+      throw new InvalidParameterException("上传失败！上传的文件大小超出了限制！");
     }
 
     byte[] bytes = FileUtils.readFileToByteArray(file);

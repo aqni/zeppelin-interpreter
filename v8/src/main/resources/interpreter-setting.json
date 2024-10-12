@@ -73,6 +73,13 @@
         "defaultValue": "18082",
         "description": "The port of File HTTP server, Default = '18082'",
         "type": "number"
+      },
+      "iginx.file.upload.dir": {
+        "envName": null,
+        "propertyName": "iginx.file.upload.dir",
+        "defaultValue": "/opt/module/zeppelin/uploads",
+        "description": "physical path to storage upload csv files",
+        "type": "string"
       }
     },
     "editor": {

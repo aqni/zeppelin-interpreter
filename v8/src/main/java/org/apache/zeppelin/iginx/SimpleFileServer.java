@@ -1,30 +1,34 @@
 package org.apache.zeppelin.iginx;
 
+import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
 import java.util.Enumeration;
-import java.util.logging.FileHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SimpleFileServer {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SimpleFileServer.class);
 
   public static String PREFIX = "/files";
+  public static String PREFIX_UPLOAD = "/files/upload";
   private int port;
   private String fileDir;
+  private String uploadFileDir;
 
   protected static final boolean isOnWin =
       System.getProperty("os.name").toLowerCase().contains("win");
 
   private HttpServer httpServer = null;
 
-  public SimpleFileServer(int port, String fileDir) {
+  public SimpleFileServer(int port, String fileDir, String uploadFileDir) {
     this.port = port;
     this.fileDir = fileDir;
+    this.uploadFileDir = uploadFileDir;
   }
 
   public void start() throws IOException {
@@ -43,9 +47,17 @@ public class SimpleFileServer {
     } catch (IOException e) {
       // do nothing
     }
-    httpServer = HttpServer.create(new InetSocketAddress(port), 0);
-    httpServer.createContext(PREFIX, new FileHandler(fileDir));
-    httpServer.start();
+
+    try {
+      LOGGER.info("Starting SimpleFileServer on port " + port);
+      httpServer = HttpServer.create(new InetSocketAddress(port), 0);
+      httpServer.createContext(PREFIX, new FileHandler(fileDir));
+      httpServer.createContext(PREFIX_UPLOAD, new UploadHandler(uploadFileDir));
+      httpServer.start();
+    } catch (IOException e) {
+      LOGGER.error("Error starting SimpleFileServer", e);
+      throw new RuntimeException(e);
+    }
   }
 
   public void stop() {
@@ -66,7 +78,7 @@ public class SimpleFileServer {
       try {
         // 添加 CORS 响应头
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         // 获取请求的文件名，并构建文件路径
         String requestPath = exchange.getRequestURI().getPath();
         String fileName = requestPath.substring(PREFIX.length());
@@ -104,6 +116,64 @@ public class SimpleFileServer {
         exchange.sendResponseHeaders(500, 0); // 发送500错误
         exchange.getResponseBody().close();
       }
+    }
+  }
+
+  /** upload csv file handler */
+  static class UploadHandler implements HttpHandler {
+    private final String basePath;
+
+    public UploadHandler(String basePath) {
+      this.basePath = basePath;
+    }
+
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+      exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+      if ("POST".equals(exchange.getRequestMethod())) {
+        File uploadDir = new File(basePath);
+        if (!uploadDir.exists()) {
+          uploadDir.mkdirs();
+        }
+        LOGGER.info("request hearers");
+        Headers requestHeaders = exchange.getRequestHeaders();
+        requestHeaders.entrySet().stream()
+            .forEach(item -> LOGGER.info(item.getKey() + ": " + item.getValue()));
+
+        BufferedWriter bw =
+            new BufferedWriter(
+                new OutputStreamWriter(
+                    Files.newOutputStream(new File(uploadDir, "data.csv").toPath())));
+        BufferedReader br =
+            new BufferedReader(
+                new InputStreamReader(new BufferedInputStream(exchange.getRequestBody())));
+        String line;
+        boolean head = true;
+        while ((line = br.readLine()) != null) {
+          LOGGER.debug("remove http heads");
+          if (line.trim().isEmpty() && head) {
+            head = false;
+            continue;
+          }
+          if (!head) {
+            LOGGER.debug("drop http tails");
+            if (line.trim().isEmpty()) {
+              break;
+            }
+            bw.write(line);
+            bw.newLine();
+          }
+        }
+        bw.close();
+        LOGGER.info("response hearers");
+        Headers responseHeaders = exchange.getResponseHeaders();
+        responseHeaders.entrySet().stream()
+            .forEach(item -> LOGGER.info(item.getKey() + ": " + item.getValue()));
+        exchange.sendResponseHeaders(200, 0);
+      } else {
+        exchange.sendResponseHeaders(405, -1);
+      }
+      exchange.close();
     }
   }
   /**
