@@ -339,63 +339,63 @@ public class IginxInterpreter8 extends Interpreter {
       return new InterpreterResult(InterpreterResult.Code.ERROR);
     }
 
-    LOGGER.info("load data sql execute, sql={}", sql);
-    SessionExecuteSqlResult res = session.executeSql(sql);
-    String parseErrorMsg = res.getParseErrorMsg();
-    if (parseErrorMsg != null && !parseErrorMsg.isEmpty()) {
-      msg = "Error: " + res.getParseErrorMsg();
-      interpreterResult = new InterpreterResult(InterpreterResult.Code.ERROR, msg);
+    try {
+      LOGGER.info("load data sql execute, sql={}", sql);
+      SessionExecuteSqlResult res = session.executeSql(sql);
+      String parseErrorMsg = res.getParseErrorMsg();
+      if (parseErrorMsg != null && !parseErrorMsg.isEmpty()) {
+        msg = "Error: " + res.getParseErrorMsg();
+        interpreterResult = new InterpreterResult(InterpreterResult.Code.ERROR, msg);
 
-      return interpreterResult;
-    }
-
-    /* replace user local path with path on server */
-    String path = res.getLoadCsvPath().replace("\\", "/");
-    Path pathObj = Paths.get(path);
-    path = DEFAULT_FILE_UPLOAD_DIR + "/" + pathObj.getFileName().toString();
-    String[] paths = sql.split(" ");
-    for (int i = 0; i < paths.length; i++) {
-      if ("INFILE".equalsIgnoreCase(paths[i])) {
-        paths[i + 1] = "\"" + path + "\"";
-        break;
+        return interpreterResult;
       }
+
+      /* replace user local path with path on server */
+      String path = res.getLoadCsvPath().replace("\\", "/");
+      Path pathObj = Paths.get(path);
+      path = DEFAULT_FILE_UPLOAD_DIR + "/" + pathObj.getFileName().toString();
+      String[] paths = sql.split(" ");
+      for (int i = 0; i < paths.length; i++) {
+        if ("INFILE".equalsIgnoreCase(paths[i])) {
+          paths[i + 1] = "\"" + path + "\"";
+          break;
+        }
+      }
+      sql = StringUtils.join(paths, " ");
+
+      File file = new File(path);
+      if (!file.exists()) {
+        throw new InvalidParameterException(path + " does not exist!");
+      }
+      if (!file.isFile()) {
+        throw new InvalidParameterException(path + " is not a file!");
+      }
+
+      double fileSizeGB =
+          new BigDecimal(file.length() / 1024 / 1024 / 1024).setScale(2, RoundingMode.HALF_UP).doubleValue();
+      if (fileSizeGB > DEFAULT_FILE_UPLOAD_MAX_SIZE) {
+        throw new InvalidParameterException(
+            "Upload failed! The file size exceeds the limit!"
+                + " It needs to be less than 10GB, but the actual upload size was "
+                + fileSizeGB
+                + "GB.");
+      }
+
+      List<String> columns = null;
+      long recordsNum = 0;
+      byte[] bytes = FileUtils.readFileToByteArray(file);
+      ByteBuffer csvFile = ByteBuffer.wrap(bytes);
+      Pair<List<String>, Long> pair = session.executeLoadCSV(sql, csvFile);
+      columns = pair.k;
+      recordsNum = pair.v;
+
+      msg = "Successfully write " + recordsNum + " record(s) to: " + columns;
+      interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
+      interpreterResult.add(InterpreterResult.Type.TEXT, msg);
+      return interpreterResult;
+    } finally {
+      uploadParagraphSet.remove(uploadParagraphKey);
     }
-    sql = StringUtils.join(paths, " ");
-
-    File file = new File(path);
-    if (!file.exists()) {
-      throw new InvalidParameterException(path + " does not exist!");
-    }
-    if (!file.isFile()) {
-      throw new InvalidParameterException(path + " is not a file!");
-    }
-
-    double fileSizeGB =
-        new BigDecimal(file.length() / 1024 / 1024 / 1024)
-            .setScale(2, RoundingMode.HALF_UP)
-            .doubleValue();
-    if (fileSizeGB > DEFAULT_FILE_UPLOAD_MAX_SIZE) {
-      throw new InvalidParameterException(
-          "Upload failed! The file size exceeds the limit!"
-              + " It needs to be less than 10GB, but the actual upload size was "
-              + fileSizeGB
-              + "GB.");
-    }
-
-    List<String> columns = null;
-    long recordsNum = 0;
-    byte[] bytes = FileUtils.readFileToByteArray(file);
-    ByteBuffer csvFile = ByteBuffer.wrap(bytes);
-    Pair<List<String>, Long> pair = session.executeLoadCSV(sql, csvFile);
-    columns = pair.k;
-    recordsNum = pair.v;
-
-    msg = "Successfully write " + recordsNum + " record(s) to: " + columns;
-    interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
-    interpreterResult.add(InterpreterResult.Type.TEXT, msg);
-
-    uploadParagraphSet.remove(uploadParagraphKey);
-    return interpreterResult;
   }
 
   private InterpreterResult processCreateFunction(String sql) {

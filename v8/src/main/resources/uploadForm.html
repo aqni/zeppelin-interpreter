@@ -84,6 +84,11 @@
                 alert('file upload failed!');
             }
         };
+        xhr.onerror= function(e) {
+            console.log(e);
+            let element = document.querySelector('[id=\"'+paragraphId+'_control\"] .ng-scope .icon-control-play');
+            element.click();
+        };
         xhr.send(formData);
     }
 
