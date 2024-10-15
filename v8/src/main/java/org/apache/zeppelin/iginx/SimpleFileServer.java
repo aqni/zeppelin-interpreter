@@ -83,7 +83,7 @@ public class SimpleFileServer {
       try {
         // 添加 CORS 响应头
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+
         // 获取请求的文件名，并构建文件路径
         String requestPath = exchange.getRequestURI().getPath();
         String fileName = requestPath.substring(PREFIX.length());
