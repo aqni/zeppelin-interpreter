@@ -11,10 +11,25 @@
 ```Shell
 mvn clean package
 ```
+本地构建时，建议使用参数`-Dmaven.test.skip=true`跳过本地单元测试
 
 构建成功后，在 `target` 文件夹下找到 `zeppelin-iginx-VERSION-shaded.jar` 文件。
 
 在下一步部署 Zeppelin 时我们需要用到这个包。
+
+##### 注意事项：
+
+1. 克隆时需要将iginx子目录同时克隆下来
+
+```
+git clone --recursive {{gitUrl}}
+```
+
+2. thrift compiler 需要加到系统环境变量中 PATH
+
+可以通过下面的链接获取thrift compiler相应版本，此处以windows为例
+https://github.com/IGinX-THU/IGinX-resources/raw/main/resources/thrift_0.16.0_win.exe
+
 
 ## 部署Zeppelin
 
@@ -160,6 +175,11 @@ IGinX Zeppelin 解释器是需要连接 IGinX 的，如果我们重启了 IGinX�
 直接在笔记本中输入 IGinX 语句即可。
 
 ![img](./images/iginx_sql.png)
+
+#### 特别说明
+##### LOAD DATA 命令
+输入LOAD DATA 命令后，需要先点击执行按钮调出文件选择控件，命令中的文件名（1处）与选择文件控件中的名称（2处，选择文件后自动填充，不可手动修改）需要保持一致。
+![img.png](img.png)
 
 ### 使用RESTful语句
 

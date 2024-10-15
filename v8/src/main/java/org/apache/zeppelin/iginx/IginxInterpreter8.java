@@ -13,6 +13,8 @@ import cn.edu.tsinghua.iginx.thrift.SqlType;
 import cn.edu.tsinghua.iginx.utils.FormatUtils;
 import cn.edu.tsinghua.iginx.utils.Pair;
 import java.io.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.file.*;
 import java.security.InvalidParameterException;
@@ -26,6 +28,8 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.zeppelin.iginx.util.SqlCmdUtil;
 import org.apache.zeppelin.interpreter.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +48,6 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String IGINX_OUTFILE_MAX_SIZE = "iginx.outfile.max.size";
   private static final String IGINX_FILE_HTTP_PORT = "iginx.http.file.port";
   private static final String IGINX_ZEPPELIN_IP = "iginx.zeppelin.ip";
-  private static final String IGINX_FILE_UPLOAD_DIR = "iginx.file.upload.dir";
 
   private static final String DEFAULT_HOST = "127.0.0.1";
   private static final String DEFAULT_PORT = "6888";
@@ -57,6 +60,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String DEFAULT_OUTFILE_MAX_SIZE = "10240";
   private static final String DEFAULT_FILE_HTTP_PORT = "18082";
   private static final String DEFAULT_FILE_UPLOAD_DIR = "/opt/module/zeppelin/uploads";
+  private static final Long DEFAULT_FILE_UPLOAD_MAX_SIZE = 10L; // GB
 
   private static final String TAB = "\t";
   private static final String NEWLINE = "\n";
@@ -76,7 +80,6 @@ public class IginxInterpreter8 extends Interpreter {
   private int outfileMaxNum = 0;
   private int outfileMaxSize = 0;
   private int fileHttpPort = 0;
-  private String uploadFileDir = "";
   private String localIpAddress = "";
 
   private Queue<String> downloadFileQueue = new LinkedList<>();
@@ -127,7 +130,6 @@ public class IginxInterpreter8 extends Interpreter {
     fileHttpPort =
         Integer.parseInt(
             properties.getProperty(IGINX_FILE_HTTP_PORT, DEFAULT_FILE_HTTP_PORT).trim());
-    uploadFileDir = properties.getProperty(IGINX_FILE_UPLOAD_DIR, DEFAULT_FILE_UPLOAD_DIR).trim();
     localIpAddress = getLocalHostExactAddress();
     if (localIpAddress == null) {
       localIpAddress = "127.0.0.1";
@@ -142,7 +144,7 @@ public class IginxInterpreter8 extends Interpreter {
     }
 
     try {
-      fileServer = new SimpleFileServer(fileHttpPort, outfileDir, uploadFileDir);
+      fileServer = new SimpleFileServer(fileHttpPort, outfileDir, DEFAULT_FILE_UPLOAD_DIR);
       fileServer.start();
       loadNGINXStaticFilesInfo();
     } catch (IOException e) {
@@ -174,6 +176,11 @@ public class IginxInterpreter8 extends Interpreter {
 
     String[] cmdList = parseMultiLinesSQL(st);
 
+    if (hasMultiLoadData(cmdList)) {
+      return new InterpreterResult(
+          InterpreterResult.Code.ERROR,
+          "Only one \"LOAD DATA\" statement can be executed at a time.");
+    }
     CompletableFuture<InterpreterResult> future = processSqlListAsync(cmdList, context);
     InterpreterResult interpreterResult;
 
@@ -305,11 +312,9 @@ public class IginxInterpreter8 extends Interpreter {
     String msg;
     InterpreterResult interpreterResult;
     String uploadParagraphKey = context.getParagraphId() + "_UPLOAD_FILE";
-    //     response upload file form, user will rerun paragraph when upload finished.
+    /* response upload file form, user will rerun paragraph when upload finished. */
+    LOGGER.info("+++++++Id={}, paragraphId={}", context.getNoteId(), uploadParagraphKey);
     if (!uploadParagraphSet.contains(uploadParagraphKey)) {
-      String httpPrefix =
-          "http://" + localIpAddress + ":" + fileHttpPort + SimpleFileServer.PREFIX + "/";
-      LOGGER.info("update csv file first " + httpPrefix);
       try (InputStream inputStream =
               IginxInterpreter8.class.getClassLoader().getResourceAsStream("uploadForm.html");
           BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
@@ -318,27 +323,24 @@ public class IginxInterpreter8 extends Interpreter {
         while ((line = reader.readLine()) != null) {
           content.append(line).append("\n");
         }
-        String html = content.toString();
-        LOGGER.info(html);
-        //        html = "<h1>Hello from Zeppelin!</h1><p>This is some HTML content.</p>";
+        String html =
+            content
+                .toString()
+                .replace("UPLOAD_URL", ":" + fileHttpPort + SimpleFileServer.PREFIX_UPLOAD)
+                .replace("PARAGRAPH_ID_VALUE", context.getParagraphId())
+                .replace("NOTEBOOK_ID_VALUE", context.getNoteId());
         interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
-        interpreterResult.add(
-            new InterpreterResultMessage(
-                InterpreterResult.Type.HTML,
-                html.replace("UPLOAD_URL", ":" + fileHttpPort + SimpleFileServer.PREFIX_UPLOAD)));
+        interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.HTML, html));
         uploadParagraphSet.add(uploadParagraphKey);
         return interpreterResult;
       } catch (IOException e) {
-        e.printStackTrace();
+        LOGGER.error("load html error", e);
       }
       return new InterpreterResult(InterpreterResult.Code.ERROR);
-    } else {
-      uploadParagraphSet.remove(uploadParagraphKey);
     }
-    LOGGER.info("load data sql execute");
-    SessionExecuteSqlResult res = session.executeSql(sql);
-    String path = res.getLoadCsvPath();
 
+    LOGGER.info("load data sql execute, sql={}", sql);
+    SessionExecuteSqlResult res = session.executeSql(sql);
     String parseErrorMsg = res.getParseErrorMsg();
     if (parseErrorMsg != null && !parseErrorMsg.isEmpty()) {
       msg = "Error: " + res.getParseErrorMsg();
@@ -347,6 +349,19 @@ public class IginxInterpreter8 extends Interpreter {
       return interpreterResult;
     }
 
+    /* replace user local path with path on server */
+    String path = res.getLoadCsvPath().replace("\\", "/");
+    Path pathObj = Paths.get(path);
+    path = DEFAULT_FILE_UPLOAD_DIR + "/" + pathObj.getFileName().toString();
+    String[] paths = sql.split(" ");
+    for (int i = 0; i < paths.length; i++) {
+      if ("INFILE".equalsIgnoreCase(paths[i])) {
+        paths[i + 1] = "\"" + path + "\"";
+        break;
+      }
+    }
+    sql = StringUtils.join(paths, " ");
+
     File file = new File(path);
     if (!file.exists()) {
       throw new InvalidParameterException(path + " does not exist!");
@@ -354,21 +369,32 @@ public class IginxInterpreter8 extends Interpreter {
     if (!file.isFile()) {
       throw new InvalidParameterException(path + " is not a file!");
     }
-    LOGGER.info("size=" + file.length());
-    if (file.length() > 1 * 1024 * 1024) {
-      throw new InvalidParameterException("上传失败！上传的文件大小超出了限制！");
+
+    double fileSizeGB =
+        new BigDecimal(file.length() / 1024 / 1024 / 1024)
+            .setScale(2, RoundingMode.HALF_UP)
+            .doubleValue();
+    if (fileSizeGB > DEFAULT_FILE_UPLOAD_MAX_SIZE) {
+      throw new InvalidParameterException(
+          "Upload failed! The file size exceeds the limit!"
+              + " It needs to be less than 10GB, but the actual upload size was "
+              + fileSizeGB
+              + "GB.");
     }
 
+    List<String> columns = null;
+    long recordsNum = 0;
     byte[] bytes = FileUtils.readFileToByteArray(file);
     ByteBuffer csvFile = ByteBuffer.wrap(bytes);
     Pair<List<String>, Long> pair = session.executeLoadCSV(sql, csvFile);
-    List<String> columns = pair.k;
-    long recordsNum = pair.v;
+    columns = pair.k;
+    recordsNum = pair.v;
 
     msg = "Successfully write " + recordsNum + " record(s) to: " + columns;
     interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
     interpreterResult.add(InterpreterResult.Type.TEXT, msg);
 
+    uploadParagraphSet.remove(uploadParagraphKey);
     return interpreterResult;
   }
 
@@ -862,5 +888,15 @@ public class IginxInterpreter8 extends Interpreter {
       return false;
     }
     return true;
+  }
+
+  private boolean hasMultiLoadData(String[] cmdList) {
+    int loadDataSqlNum = 0;
+    for (String str : cmdList) {
+      if (SqlCmdUtil.removeExtraSpaces(str).toUpperCase().contains("LOAD DATA FROM INFILE")) {
+        loadDataSqlNum++;
+      }
+    }
+    return loadDataSqlNum > 1;
   }
 }
