@@ -21,8 +21,7 @@ public class SimpleFileServer {
   private int port;
   private String fileDir;
   private String uploadFileDir;
-  //  private static final long UPLOAD_FILE_DIR_MAX_SIZE = 100L * 1024 * 1024 * 1024; // 100GB
-  private static final long UPLOAD_FILE_DIR_MAX_SIZE = 300L;
+    private static final long UPLOAD_FILE_DIR_MAX_SIZE = 200L * 1024 * 1024 * 1024; // 100GB
   protected static final boolean isOnWin =
       System.getProperty("os.name").toLowerCase().contains("win");
 
