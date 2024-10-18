@@ -29,6 +29,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.apache.zeppelin.iginx.util.HttpUtil;
 import org.apache.zeppelin.iginx.util.SqlCmdUtil;
 import org.apache.zeppelin.interpreter.*;
 import org.slf4j.Logger;
@@ -48,6 +50,8 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String IGINX_OUTFILE_MAX_SIZE = "iginx.outfile.max.size";
   private static final String IGINX_FILE_HTTP_PORT = "iginx.http.file.port";
   private static final String IGINX_ZEPPELIN_IP = "iginx.zeppelin.ip";
+  private static final String IGINX_UPLOAD_FILE_MAX_SIZE = "iginx.zeppelin.upload.file.max.size";
+  private static final String IGINX_UPLOAD_DIR_MAX_SIZE = "iginx.zeppelin.upload.dir.max.size";
 
   private static final String DEFAULT_HOST = "127.0.0.1";
   private static final String DEFAULT_PORT = "6888";
@@ -59,8 +63,9 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String DEFAULT_OUTFILE_MAX_NUM = "100";
   private static final String DEFAULT_OUTFILE_MAX_SIZE = "10240";
   private static final String DEFAULT_FILE_HTTP_PORT = "18082";
-  private static final String DEFAULT_FILE_UPLOAD_DIR = "/opt/module/zeppelin/uploads";
-  private static final Long DEFAULT_FILE_UPLOAD_MAX_SIZE = 10L; // GB
+  private static final String DEFAULT_UPLOAD_DIR = "uploads";
+  private static final String DEFAULT_UPLOAD_FILE_MAX_SIZE = "10"; // GB
+  private static final String DEFAULT_UPLOAD_DIR_MAX_SIZE = "200"; // GB
 
   private static final String TAB = "\t";
   private static final String NEWLINE = "\n";
@@ -81,6 +86,8 @@ public class IginxInterpreter8 extends Interpreter {
   private int outfileMaxSize = 0;
   private int fileHttpPort = 0;
   private String localIpAddress = "";
+  private long uploadFileMaxSize = 0;
+  private long uploadDirMaxSize = 0;
 
   private Queue<String> downloadFileQueue = new LinkedList<>();
   private Queue<Double> downloadFileSizeQueue = new LinkedList<>();
@@ -130,6 +137,14 @@ public class IginxInterpreter8 extends Interpreter {
     fileHttpPort =
         Integer.parseInt(
             properties.getProperty(IGINX_FILE_HTTP_PORT, DEFAULT_FILE_HTTP_PORT).trim());
+    uploadFileMaxSize =
+        Long.parseLong(
+            properties
+                .getProperty(IGINX_UPLOAD_FILE_MAX_SIZE, DEFAULT_UPLOAD_FILE_MAX_SIZE)
+                .trim());
+    uploadDirMaxSize =
+        Long.parseLong(
+            properties.getProperty(IGINX_UPLOAD_DIR_MAX_SIZE, DEFAULT_UPLOAD_DIR_MAX_SIZE).trim());
     localIpAddress = getLocalHostExactAddress();
     if (localIpAddress == null) {
       localIpAddress = "127.0.0.1";
@@ -144,7 +159,8 @@ public class IginxInterpreter8 extends Interpreter {
     }
 
     try {
-      fileServer = new SimpleFileServer(fileHttpPort, outfileDir, DEFAULT_FILE_UPLOAD_DIR);
+      fileServer =
+          new SimpleFileServer(fileHttpPort, outfileDir, DEFAULT_UPLOAD_DIR, uploadDirMaxSize);
       fileServer.start();
       loadNGINXStaticFilesInfo();
     } catch (IOException e) {
@@ -349,11 +365,14 @@ public class IginxInterpreter8 extends Interpreter {
 
         return interpreterResult;
       }
-
-      /* replace user local path with path on server */
-      String path = res.getLoadCsvPath().replace("\\", "/");
-      Path pathObj = Paths.get(path);
-      path = DEFAULT_FILE_UPLOAD_DIR + "/" + pathObj.getFileName().toString();
+      String path = convertPath(res.getLoadCsvPath(), sql);
+      File file = new File(path);
+      if (!file.exists()) {
+        throw new InvalidParameterException(path + " does not exist!");
+      }
+      if (!file.isFile()) {
+        throw new InvalidParameterException(path + " is not a file!");
+      }
       String[] paths = sql.split(" ");
       for (int i = 0; i < paths.length; i++) {
         if ("INFILE".equalsIgnoreCase(paths[i])) {
@@ -362,18 +381,11 @@ public class IginxInterpreter8 extends Interpreter {
         }
       }
       sql = StringUtils.join(paths, " ");
-
-      File file = new File(path);
-      if (!file.exists()) {
-        throw new InvalidParameterException(path + " does not exist!");
-      }
-      if (!file.isFile()) {
-        throw new InvalidParameterException(path + " is not a file!");
-      }
-
       double fileSizeGB =
-          new BigDecimal(file.length() / 1024 / 1024 / 1024).setScale(2, RoundingMode.HALF_UP).doubleValue();
-      if (fileSizeGB > DEFAULT_FILE_UPLOAD_MAX_SIZE) {
+          new BigDecimal(file.length() / 1024 / 1024 / 1024)
+              .setScale(2, RoundingMode.HALF_UP)
+              .doubleValue();
+      if (fileSizeGB > uploadFileMaxSize) {
         throw new InvalidParameterException(
             "Upload failed! The file size exceeds the limit!"
                 + " It needs to be less than 10GB, but the actual upload size was "
@@ -396,6 +408,28 @@ public class IginxInterpreter8 extends Interpreter {
     } finally {
       uploadParagraphSet.remove(uploadParagraphKey);
     }
+  }
+
+  /** replace user local path by absolute path on server */
+  private String convertPath(String inputPath, String sql) throws IOException {
+    String path;
+    Path pathObj;
+    if (SystemUtils.IS_OS_WINDOWS) {
+      LOGGER.info("current os is Windows");
+      path = inputPath.replace("/", "\\");
+      pathObj = Paths.get(path);
+    } else {
+      LOGGER.info("current os is Linux or Mac");
+      path = inputPath.replace("\\", "/");
+      pathObj = Paths.get(path);
+    }
+
+    path =
+        HttpUtil.getCurrentPath(DEFAULT_UPLOAD_DIR)
+            + File.separator
+            + pathObj.getFileName().toString();
+    LOGGER.info("converted path is {}", path);
+    return path;
   }
 
   private InterpreterResult processCreateFunction(String sql) {

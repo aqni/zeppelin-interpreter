@@ -21,16 +21,17 @@ public class SimpleFileServer {
   private int port;
   private String fileDir;
   private String uploadFileDir;
-  private static final long UPLOAD_FILE_DIR_MAX_SIZE = 200L * 1024 * 1024 * 1024; // 200GB
+  private Long uploadDirMaxSize;
   protected static final boolean isOnWin =
       System.getProperty("os.name").toLowerCase().contains("win");
 
   private HttpServer httpServer = null;
 
-  public SimpleFileServer(int port, String fileDir, String uploadFileDir) {
+  public SimpleFileServer(int port, String fileDir, String uploadFileDir, long uploadDirMaxSize) {
     this.port = port;
     this.fileDir = fileDir;
     this.uploadFileDir = uploadFileDir;
+    this.uploadDirMaxSize = uploadDirMaxSize;
   }
 
   public void start() throws IOException {
@@ -133,6 +134,7 @@ public class SimpleFileServer {
 
     @Override
     public void handle(HttpExchange exchange) {
+
       String zeppelinUrl = "", noteBookId = "", paragraphId = "", fileName = "";
       BufferedWriter bw = null;
       BufferedReader br = null;
@@ -144,7 +146,7 @@ public class SimpleFileServer {
           return;
         }
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-        File uploadDir = new File(basePath);
+        File uploadDir = new File(HttpUtil.getCurrentPath(basePath));
         if (!uploadDir.exists()) {
           uploadDir.mkdirs();
         }
@@ -196,13 +198,16 @@ public class SimpleFileServer {
           bw.close();
         }
         LOGGER.info(
-            "received parameters:{},{},{},{}", zeppelinUrl, noteBookId, paragraphId, fileName);
+            "received parameters:{},{},{}",
+            zeppelinUrl,
+            noteBookId,
+            paragraphId,
+            fileName);
         String result =
             HttpUtil.sendPost(
-                String.format(
-                    "%s:18080/api/notebook/run/%s/%s", zeppelinUrl, noteBookId, paragraphId),
+                String.format("%s/api/notebook/run/%s/%s", zeppelinUrl, noteBookId, paragraphId),
                 null);
-        LOGGER.info("result of rerun paragraph cmd: {}", result);
+        LOGGER.info("result of rerun paragraph command: {}", result);
         exchange.sendResponseHeaders(200, 0);
       } catch (IOException e) {
         LOGGER.error("Error uploading file", e);
@@ -225,7 +230,7 @@ public class SimpleFileServer {
                 Arrays.sort(files, Comparator.comparingLong(File::lastModified));
                 long totalSize = Arrays.stream(files).mapToLong(File::length).sum();
                 for (File file : files) {
-                  if (totalSize <= UPLOAD_FILE_DIR_MAX_SIZE) {
+                  if (totalSize <= uploadDirMaxSize) {
                     break;
                   }
                   LOGGER.info("Deleted file {},{}", file.getAbsolutePath(), file.length());

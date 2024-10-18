@@ -1,6 +1,8 @@
 package org.apache.zeppelin.iginx.util;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.List;
 import org.apache.http.HttpEntity;
 import org.apache.http.NameValuePair;
@@ -86,5 +88,16 @@ public class HttpUtil {
             .build();
 
     return HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
+  }
+
+  /**
+   * get current absolute path, for example window： C:\module\zeppelin-0.8.2-bin-netinst\
+   * Linux：/opt/module/zeppelin-0.8.2-bin-netinst/
+   *
+   * @return
+   */
+  public static String getCurrentPath(String targetDir) {
+    String currentPath = System.getProperty("user.dir");
+    return Paths.get(currentPath).getParent().toAbsolutePath() + File.separator + targetDir;
   }
 }
