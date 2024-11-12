@@ -151,6 +151,8 @@ docker run -v ~/code/zeppelin-interpreter/:/opt/zeppelin/interpreter/iginx --pri
 10. **iginx.file.http.port**：IGinX 中文件下载服务要占用的端口，默认为 18082，如果需要修改端口则修改此处。
 11. **iginx.zeppelin.upload.dir.max.size**：IGinX上传文件夹大小限制，单位GB，超出后会删除最早的文件。
 12. **iginx.zeppelin.upload.file.max.size**：IGinX上传文件大小限制，单位GB。
+13. **iginx.zeppelin.note.font.size.enable**:是否激活Note范围内统一字体尺寸，默认不开启。
+14. **iginx.zeppelin.note.font.size**：Note范围内字体尺寸，默认16，可选值9-20。
 ### 新建IGinX笔记本
 
 点击红框内的 Create new note

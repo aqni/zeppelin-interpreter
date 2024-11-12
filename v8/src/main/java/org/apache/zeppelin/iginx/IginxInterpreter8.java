@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
@@ -52,6 +53,8 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String IGINX_ZEPPELIN_IP = "iginx.zeppelin.ip";
   private static final String IGINX_UPLOAD_FILE_MAX_SIZE = "iginx.zeppelin.upload.file.max.size";
   private static final String IGINX_UPLOAD_DIR_MAX_SIZE = "iginx.zeppelin.upload.dir.max.size";
+  private static final String IGINX_NOTE_FONT_SIZE_ENABLE = "iginx.zeppelin.note.font.size.enable";
+  private static final String IGINX_NOTE_FONT_SIZE = "iginx.zeppelin.note.font.size";
 
   private static final String DEFAULT_HOST = "127.0.0.1";
   private static final String DEFAULT_PORT = "6888";
@@ -66,6 +69,8 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String DEFAULT_UPLOAD_DIR = "uploads";
   private static final String DEFAULT_UPLOAD_FILE_MAX_SIZE = "10"; // GB
   private static final String DEFAULT_UPLOAD_DIR_MAX_SIZE = "200"; // GB
+  private static final String DEFAULT_NOTE_FONT_SIZE_ENABLE = "false";
+  private static final String DEFAULT_NOTE_FONT_SIZE = "9.0";
 
   private static final String TAB = "\t";
   private static final String NEWLINE = "\n";
@@ -88,6 +93,8 @@ public class IginxInterpreter8 extends Interpreter {
   private String localIpAddress = "";
   private long uploadFileMaxSize = 0;
   private long uploadDirMaxSize = 0;
+  private boolean noteFontSizeEnable = false;
+  private double noteFontSize = 9.0;
 
   private Queue<String> downloadFileQueue = new LinkedList<>();
   private Queue<Double> downloadFileSizeQueue = new LinkedList<>();
@@ -145,6 +152,13 @@ public class IginxInterpreter8 extends Interpreter {
     uploadDirMaxSize =
         Long.parseLong(
             properties.getProperty(IGINX_UPLOAD_DIR_MAX_SIZE, DEFAULT_UPLOAD_DIR_MAX_SIZE).trim());
+    noteFontSizeEnable =
+        Boolean.parseBoolean(
+            properties.getProperty(IGINX_NOTE_FONT_SIZE_ENABLE, DEFAULT_NOTE_FONT_SIZE_ENABLE));
+    noteFontSize =
+        Double.parseDouble(
+            properties.getProperty(IGINX_NOTE_FONT_SIZE, DEFAULT_NOTE_FONT_SIZE).trim());
+
     localIpAddress = getLocalHostExactAddress();
     if (localIpAddress == null) {
       localIpAddress = "127.0.0.1";
@@ -205,8 +219,7 @@ public class IginxInterpreter8 extends Interpreter {
     } catch (Exception e) {
       interpreterResult = new InterpreterResult(InterpreterResult.Code.ERROR, e.getMessage());
     }
-
-    return interpreterResult;
+    return tuneFontSize(interpreterResult, context);
   }
 
   /**
@@ -548,7 +561,7 @@ public class IginxInterpreter8 extends Interpreter {
       }
     }
     // 构建表格
-    String downloadLink = "%%html<a href=\"%s\" download=\"%s\">点击下载</a>";
+    String downloadLink = "<a href=\"%s\" download=\"%s\">点击下载</a>";
     StringBuilder builder = new StringBuilder();
     builder.append("文件名").append(TAB).append("下载链接").append(NEWLINE);
     String httpPrefix =
@@ -852,7 +865,7 @@ public class IginxInterpreter8 extends Interpreter {
 
   private String convertToHTMLString(String str) {
     return str.contains("\n")
-        ? "%html" + str.replace("\n", "<br>").replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
+        ? str.replace("\n", "<br>").replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
         : str;
   }
 
@@ -932,5 +945,81 @@ public class IginxInterpreter8 extends Interpreter {
       }
     }
     return loadDataSqlNum > 1;
+  }
+  /**
+   * 根据配置调整字体大小 如果配激活了note全局字体大小，使用配的字体大小 如果没有激活，取paragraph设置的字体大小
+   *
+   * @param interpreterResult
+   * @param context
+   * @return InterpreterResult
+   */
+  public InterpreterResult tuneFontSize(
+      InterpreterResult interpreterResult, InterpreterContext context) {
+    int hTagNumber;
+    Double fontSize = (Double) context.getConfig().getOrDefault("fontSize", "9.0");
+    if (noteFontSizeEnable) {
+      fontSize = noteFontSize;
+    }
+    if (fontSize <= 10) {
+      hTagNumber = 6;
+    } else if (fontSize <= 12) {
+      hTagNumber = 5;
+    } else if (fontSize <= 14) {
+      hTagNumber = 4;
+    } else if (fontSize <= 16) {
+      hTagNumber = 3;
+    } else if (fontSize <= 18) {
+      hTagNumber = 2;
+    } else if (fontSize <= 20) {
+      hTagNumber = 1;
+    } else {
+      hTagNumber = 6;
+    }
+    LOGGER.info(
+        "NoteId={},ParagraphId={},fontSizeEnable={},fontSize={}",
+        context.getNoteId(),
+        context.getParagraphId(),
+        fontSize,
+        hTagNumber);
+    List<InterpreterResultMessage> message = interpreterResult.message();
+    return new InterpreterResult(
+        interpreterResult.code(),
+        message.stream()
+            .map(
+                item -> {
+                  LOGGER.debug("type={},data={}", item.getType(), item.getData());
+                  if (item.getType().equals(InterpreterResult.Type.TABLE)) {
+                    String collect =
+                        Arrays.stream(item.getData().split(NEWLINE))
+                                .limit(1)
+                                .collect(Collectors.joining(NEWLINE))
+                            + NEWLINE
+                            + Arrays.stream(item.getData().split(NEWLINE))
+                                .skip(1)
+                                .map(
+                                    line ->
+                                        Arrays.stream(line.split(TAB))
+                                            .map(
+                                                val ->
+                                                    String.format(
+                                                        "%%html<h%d>%s</h%d>",
+                                                        hTagNumber, val, hTagNumber))
+                                            .collect(Collectors.joining(TAB)))
+                                .collect(Collectors.joining(NEWLINE));
+                    return new InterpreterResultMessage(item.getType(), collect);
+                  } else if (item.getType().equals(InterpreterResult.Type.TEXT)) {
+                    return new InterpreterResultMessage(
+                        InterpreterResult.Type.HTML,
+                        String.format("<h%d>%s</h%d>", hTagNumber, item.getData(), hTagNumber));
+                  } else if (item.getType().equals(InterpreterResult.Type.HTML)) {
+                    return new InterpreterResultMessage(
+                        item.getType(),
+                        String.format("<h%d>%s</h%d>", hTagNumber, item.getData(), hTagNumber));
+                  } else {
+                    LOGGER.warn("unexpected result type {}", item.getType());
+                  }
+                  return new InterpreterResultMessage(item.getType(), item.getData());
+                })
+            .collect(Collectors.toList()));
   }
 }

@@ -87,6 +87,20 @@
         "defaultValue": "200",
         "description": "The Max Size of upload directory, Default = 200GB",
         "type": "number"
+      },
+      "iginx.zeppelin.note.font.size.enable": {
+        "envName": null,
+        "propertyName": "iginx.zeppelin.note.font.size.enable",
+        "defaultValue": false,
+        "description": "If enable the same font size in the note scope, Default = false",
+        "type": "checkbox"
+      },
+      "iginx.zeppelin.note.font.size": {
+        "envName": null,
+        "propertyName": "iginx.zeppelin.note.font.size",
+        "defaultValue": "16",
+        "description": "Font size in not scope, Default = 9",
+        "type": "number"
       }
     },
     "editor": {
