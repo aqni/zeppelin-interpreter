@@ -26,9 +26,14 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
+import org.apache.zeppelin.iginx.util.MultiwayTree;
+import org.apache.zeppelin.iginx.util.TreeNode;
 import org.apache.zeppelin.interpreter.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class IginxInterpreter8 extends Interpreter {
+  private static final Logger LOGGER = LoggerFactory.getLogger(IginxInterpreter8.class);
 
   private static final String IGINX_HOST = "iginx.host";
   private static final String IGINX_PORT = "iginx.port";
@@ -197,11 +202,11 @@ public class IginxInterpreter8 extends Interpreter {
         () -> {
           InterpreterResult interpreterResult = null;
           for (String cmd : sqlList) {
-            interpreterResult = processSql(cmd);
+            interpreterResult = processSql(cmd, context);
             if (isSessionClosedError(interpreterResult)) {
               if (reopenSession()) {
                 // 暂停，等待连接建立
-                interpreterResult = processSql(cmd);
+                interpreterResult = processSql(cmd, context);
               } else {
                 interpreterResult.add(
                     InterpreterResult.Type.TEXT,
@@ -215,7 +220,7 @@ public class IginxInterpreter8 extends Interpreter {
     return future;
   }
 
-  private InterpreterResult processSql(String sql) {
+  private InterpreterResult processSql(String sql, InterpreterContext context) {
     try {
       // 如果sql中有outfile关键字，则进行特殊处理，将结果下载到zeppelin所在的服务器上，并在表单中返回下载链接
       String outfileRegex =
@@ -242,23 +247,51 @@ public class IginxInterpreter8 extends Interpreter {
         return new InterpreterResult(InterpreterResult.Code.ERROR, sqlResult.getParseErrorMsg());
       }
 
-      InterpreterResult interpreterResult;
+      InterpreterResult interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
       String msg;
-
       if (singleFormSqlType.contains(sqlResult.getSqlType()) && !sql.startsWith("explain")) {
+        if (SqlType.ShowColumns == sqlResult.getSqlType()) {
+          List<List<String>> queryList =
+              sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
+
+          MultiwayTree tree = MultiwayTree.getMultiwayTree();
+          queryList
+              .subList(1, queryList.size())
+              .forEach(
+                  row -> {
+                    MultiwayTree.addTreeNodeFromString(tree, row.get(0)); // TODO
+                  });
+
+          StringBuffer stringBuffer = new StringBuffer();
+          generateHtml(tree.getRoot(), stringBuffer);
+          try (InputStream inputStream =
+                  IginxInterpreter8.class.getClassLoader().getResourceAsStream("tree.html");
+              BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            StringBuilder content = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+              content.append(line).append("\n");
+            }
+            String html =
+                content
+                    .toString()
+                    .replace("HTML_CONTENT", stringBuffer.toString())
+                    .replace("PARAGRAPH_ID", context.getParagraphId().replace("-", "_"));
+            interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.HTML, html));
+          } catch (IOException e) {
+            LOGGER.warn("load show columns to tree error", e);
+          }
+        }
         msg =
             buildSingleFormResult(
                 sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
-        interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
         interpreterResult.add(InterpreterResult.Type.TABLE, msg);
       } else if (sqlResult.getSqlType() == SqlType.Query && sql.startsWith("explain")) {
         msg =
             buildExplainResult(
                 sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
-        interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
         interpreterResult.add(InterpreterResult.Type.TABLE, msg);
       } else if (sqlResult.getSqlType() == SqlType.ShowClusterInfo) {
-        interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
         buildClusterInfoResult(
             interpreterResult,
             sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
@@ -275,6 +308,32 @@ public class IginxInterpreter8 extends Interpreter {
       return new InterpreterResult(
           InterpreterResult.Code.ERROR,
           "encounter error when executing sql statement:\n" + e.getMessage());
+    }
+  }
+
+  public static void generateHtml(TreeNode parentNode, StringBuffer html) {
+    if (parentNode == null) {
+      return;
+    }
+    if (parentNode.getValue().equals(MultiwayTree.ROOT_NODE_NAME)) {
+      html.append("<ul class=\"tree\">");
+    }
+    if (parentNode.getChildren().isEmpty()) {
+      // 不存在嵌套列表
+      html.append("<li>").append(parentNode.getValue()).append("</li>");
+    } else {
+      // 存在嵌套列表
+      html.append("<li>")
+          .append("<details open>")
+          .append("<summary>")
+          .append(parentNode.getValue())
+          .append("</summary>")
+          .append("<ul>");
+      parentNode.getChildren().forEach(child -> generateHtml(child, html));
+      html.append("</ul>").append("</details>").append("</li>");
+    }
+    if (parentNode.getValue().equals(MultiwayTree.ROOT_NODE_NAME)) {
+      html.append("</ul>");
     }
   }
 
