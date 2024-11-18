@@ -22,13 +22,13 @@ mvn clean package
 
 ### 修改项目版本
 
-例如将版本改为 0.7.2
+IGinX Zeppelin Interpreter 的版本与 IGinX 版本一致，如果 IGinX 版本发生变化，需要修改 IGinX Zeppelin Interpreter 的版本。
+
+下面的例子会将版本改为 0.7.2
 
 ```shell
 mvn versions:set -DnewVersion=0.7.2
 ```
-
-如果将代码需要合并到主分支中，则需要同步修改 submodule，否则 Github Action 可能无法自动发布二进制文件。可以借助当前仓库（或fork后的仓库）中的 Github Action 修改版本号： https://github.com/IGinX-THU/zeppelin-interpreter/actions/workflows/update.yml
 
 ## 部署Zeppelin
 
