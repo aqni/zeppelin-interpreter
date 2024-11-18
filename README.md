@@ -4,7 +4,11 @@
 
 这是一个 Zeppelin 的 IGinX 解释器，用于使 Zeppelin 连接 IGinX。
 
-## 为 Zeppelin 编译构建 IGinX 的 Interpreter
+## 构建Interpreter
+
+为 Zeppelin 编译构建 IGinX 的 Interpreter
+
+### 构建 Maven 项目
 
 执行下面的语句以构建 IGinX Zeppelin Interpreter
 
@@ -15,6 +19,14 @@ mvn clean package
 构建成功后，在 `target` 文件夹下找到 `zeppelin-iginx-VERSION-shaded.jar` 文件。
 
 在下一步部署 Zeppelin 时我们需要用到这个包。
+
+### 修改项目版本
+
+例如将版本改为 0.7.2
+
+```shell
+mvn versions:set -DnewVersion=0.7.2
+```
 
 ## 部署Zeppelin
 
