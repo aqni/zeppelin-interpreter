@@ -4,7 +4,11 @@
 
 这是一个 Zeppelin 的 IGinX 解释器，用于使 Zeppelin 连接 IGinX。
 
-## 为 Zeppelin 编译构建 IGinX 的 Interpreter
+## 构建Interpreter
+
+为 Zeppelin 编译构建 IGinX 的 Interpreter
+
+### 构建 Maven 项目
 
 执行下面的语句以构建 IGinX Zeppelin Interpreter
 
@@ -30,6 +34,15 @@ git clone --recursive {{gitUrl}}
 可以通过下面的链接获取thrift compiler相应版本，此处以windows为例
 https://github.com/IGinX-THU/IGinX-resources/raw/main/resources/thrift_0.16.0_win.exe
 
+### 修改项目版本
+
+IGinX Zeppelin Interpreter 的版本与 IGinX 版本一致，如果 IGinX 版本发生变化，需要修改 IGinX Zeppelin Interpreter 的版本。
+
+下面的例子会将版本改为 0.7.2
+
+```shell
+mvn versions:set -DnewVersion=0.7.2
+```
 
 ## 部署Zeppelin
 
