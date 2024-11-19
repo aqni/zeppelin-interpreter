@@ -134,6 +134,7 @@ docker run -v ~/code/zeppelin-interpreter/:/opt/zeppelin/interpreter/iginx --pri
 8. iginx.outfile.max.num：IGinX OUTFILE 文件夹中存放的总文件夹数量限制，每次查询会创建一个文件夹，超出后会删除最早的文件夹。
 9. iginx.outfile.max.size：IGinX OUTFILE 文件夹中存储的总文件大小限制，单位为 MB，超出后会删除最早的文件。
 10. **iginx.file.http.port**：IGinX 中文件下载服务要占用的端口，默认为 18082，如果需要修改端口则修改此处。
+11. **iginx.file.http.host**：IGinX 中文件下载服务要占用的IP，默认为 127.0.0.1。
 
 ### 新建IGinX笔记本
 
