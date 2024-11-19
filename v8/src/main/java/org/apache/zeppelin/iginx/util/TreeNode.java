@@ -4,17 +4,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TreeNode {
+  String path;
   String value;
   List<TreeNode> children;
   List<String> columns;
 
-  public TreeNode(String value, List<String> columns) {
+  public TreeNode(String path, String value, List<String> columns) {
+    this.path = path;
     this.value = value;
     this.children = new ArrayList<>();
     this.columns = columns;
   }
 
-  public TreeNode(String value) {
+  public TreeNode(String path, String value) {
+    this.path = path;
     this.value = value;
     this.children = new ArrayList<>();
   }

@@ -73,6 +73,13 @@
         "defaultValue": "18082",
         "description": "The port of File HTTP server, Default = '18082'",
         "type": "number"
+      },
+      "iginx.file.http.host": {
+        "envName": null,
+        "propertyName": "iginx.http.host",
+        "defaultValue": "",
+        "description": "The host of File HTTP server, Default = ''",
+        "type": "string"
       }
     },
     "editor": {

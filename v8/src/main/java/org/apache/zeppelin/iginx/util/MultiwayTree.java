@@ -1,7 +1,10 @@
 package org.apache.zeppelin.iginx.util;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class MultiwayTree {
   public static final String ROOT_NODE_NAME = "根节点";
+  public static final String ROOT_NODE_PATH = "root";
 
   public TreeNode getRoot() {
     return root;
@@ -48,7 +51,7 @@ public class MultiwayTree {
 
   public static MultiwayTree getMultiwayTree() {
     MultiwayTree tree = new MultiwayTree();
-    tree.root = new TreeNode(ROOT_NODE_NAME); // 初始化
+    tree.root = new TreeNode(ROOT_NODE_PATH, ROOT_NODE_NAME); // 初始化
     return tree;
   }
 
@@ -56,7 +59,9 @@ public class MultiwayTree {
     String[] nodes = nodeString.split("\\.");
     TreeNode newNode = tree.root;
     for (int i = 0; i < nodes.length; i++) {
-      newNode = tree.insert(newNode, new TreeNode(nodes[i]));
+      newNode =
+          tree.insert(
+              newNode, new TreeNode(StringUtils.join(newNode.path, ".", nodes[i]), nodes[i]));
     }
   }
 }

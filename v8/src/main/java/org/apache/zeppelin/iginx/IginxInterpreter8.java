@@ -12,6 +12,7 @@ import cn.edu.tsinghua.iginx.thrift.LoadUDFResp;
 import cn.edu.tsinghua.iginx.thrift.SqlType;
 import cn.edu.tsinghua.iginx.utils.FormatUtils;
 import cn.edu.tsinghua.iginx.utils.Pair;
+import com.google.gson.Gson;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.file.*;
@@ -26,8 +27,8 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
+import org.apache.zeppelin.iginx.util.FileUtil;
 import org.apache.zeppelin.iginx.util.MultiwayTree;
-import org.apache.zeppelin.iginx.util.TreeNode;
 import org.apache.zeppelin.interpreter.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +46,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String IGINX_OUTFILE_MAX_NUM = "iginx.outfile.max.num";
   private static final String IGINX_OUTFILE_MAX_SIZE = "iginx.outfile.max.size";
   private static final String IGINX_FILE_HTTP_PORT = "iginx.http.file.port";
+  private static final String IGINX_FILE_HTTP_HOST = "iginx.file.http.host";
   private static final String IGINX_ZEPPELIN_IP = "iginx.zeppelin.ip";
 
   private static final String DEFAULT_HOST = "127.0.0.1";
@@ -57,6 +59,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String DEFAULT_OUTFILE_MAX_NUM = "100";
   private static final String DEFAULT_OUTFILE_MAX_SIZE = "10240";
   private static final String DEFAULT_FILE_HTTP_PORT = "18082";
+  private static final String DEFAULT_FILE_HTTP_HOST = "127.0.0.1";
 
   private static final String TAB = "\t";
   private static final String NEWLINE = "\n";
@@ -76,6 +79,7 @@ public class IginxInterpreter8 extends Interpreter {
   private int outfileMaxNum = 0;
   private int outfileMaxSize = 0;
   private int fileHttpPort = 0;
+  private String fileHttpHost = "";
   private String localIpAddress = "";
 
   private Queue<String> downloadFileQueue = new LinkedList<>();
@@ -125,12 +129,11 @@ public class IginxInterpreter8 extends Interpreter {
     fileHttpPort =
         Integer.parseInt(
             properties.getProperty(IGINX_FILE_HTTP_PORT, DEFAULT_FILE_HTTP_PORT).trim());
-
+    fileHttpHost = properties.getProperty(IGINX_FILE_HTTP_HOST, DEFAULT_FILE_HTTP_HOST).trim();
     localIpAddress = getLocalHostExactAddress();
     if (localIpAddress == null) {
       localIpAddress = "127.0.0.1";
     }
-
     session = new Session(host, port, username, password);
     try {
       session.openSession();
@@ -251,36 +254,9 @@ public class IginxInterpreter8 extends Interpreter {
       String msg;
       if (singleFormSqlType.contains(sqlResult.getSqlType()) && !sql.startsWith("explain")) {
         if (SqlType.ShowColumns == sqlResult.getSqlType()) {
-          List<List<String>> queryList =
-              sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
-
-          MultiwayTree tree = MultiwayTree.getMultiwayTree();
-          queryList
-              .subList(1, queryList.size())
-              .forEach(
-                  row -> {
-                    MultiwayTree.addTreeNodeFromString(tree, row.get(0)); // TODO
-                  });
-
-          StringBuffer stringBuffer = new StringBuffer();
-          generateHtml(tree.getRoot(), stringBuffer);
-          try (InputStream inputStream =
-                  IginxInterpreter8.class.getClassLoader().getResourceAsStream("tree.html");
-              BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-            StringBuilder content = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-              content.append(line).append("\n");
-            }
-            String html =
-                content
-                    .toString()
-                    .replace("HTML_CONTENT", stringBuffer.toString())
-                    .replace("PARAGRAPH_ID", context.getParagraphId().replace("-", "_"));
-            interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.HTML, html));
-          } catch (IOException e) {
-            LOGGER.warn("load show columns to tree error", e);
-          }
+          interpreterResult.add(
+              new InterpreterResultMessage(
+                  InterpreterResult.Type.HTML, buildNetworkForShowColumns(sqlResult)));
         }
         msg =
             buildSingleFormResult(
@@ -311,30 +287,62 @@ public class IginxInterpreter8 extends Interpreter {
     }
   }
 
-  public static void generateHtml(TreeNode parentNode, StringBuffer html) {
-    if (parentNode == null) {
-      return;
+  /**
+   * 为show columns 命令创建网状图
+   *
+   * @param sqlResult
+   */
+  public String buildNetworkForShowColumns(SessionExecuteSqlResult sqlResult) {
+    StringBuilder mainHtml = new StringBuilder();
+    List<List<String>> queryList =
+        sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
+    MultiwayTree tree = MultiwayTree.getMultiwayTree();
+    queryList
+        .subList(1, queryList.size())
+        .forEach(
+            row -> {
+              MultiwayTree.addTreeNodeFromString(tree, row.get(0));
+            });
+    try (InputStream inputStream =
+        IginxInterpreter8.class.getClassLoader().getResourceAsStream("static/vis/network.html")) {
+      BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+      StringBuilder content = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        content.append(line).append("\n");
+      }
+      Gson gson = new Gson();
+      String jsonString = gson.toJson(tree);
+      String html = content.toString().replace("ALL_NODE_STR", jsonString);
+      // 写入vis等库文件，只在新环境执行一次
+      String targetPath = outfileDir + "/graphs/lib/";
+      if (!FileUtil.isDirectoryLoaded(targetPath)) {
+        String sourcePath = "static/vis/lib/";
+        String jarUrl =
+            Objects.requireNonNull(IginxInterpreter8.class.getClassLoader().getResource(sourcePath))
+                .toString();
+        String jarPath = jarUrl.substring(jarUrl.indexOf("file:") + 5, jarUrl.indexOf(".jar") + 4);
+        FileUtil.extractDirectoryFromJar(jarPath, sourcePath, targetPath);
+      }
+      // 写入network html
+      File networkHtml = new File(outfileDir + "/graphs/network.html");
+      OutputStream outputStream = Files.newOutputStream(networkHtml.toPath());
+      outputStream.write(html.getBytes());
+      outputStream.close();
+      InputStream inputStreamMain =
+          IginxInterpreter8.class.getClassLoader().getResourceAsStream("static/vis/main.html");
+      BufferedReader br = new BufferedReader(new InputStreamReader(inputStreamMain));
+      while ((line = br.readLine()) != null) {
+        mainHtml.append(line).append("\n");
+      }
+      return mainHtml
+          .toString()
+          .replace("FILE_HOST", fileHttpHost)
+          .replace("FILE_PORT", String.valueOf(fileHttpPort));
+    } catch (IOException e) {
+      LOGGER.warn("load show columns to tree error", e);
     }
-    if (parentNode.getValue().equals(MultiwayTree.ROOT_NODE_NAME)) {
-      html.append("<ul class=\"tree\">");
-    }
-    if (parentNode.getChildren().isEmpty()) {
-      // 不存在嵌套列表
-      html.append("<li>").append(parentNode.getValue()).append("</li>");
-    } else {
-      // 存在嵌套列表
-      html.append("<li>")
-          .append("<details open>")
-          .append("<summary>")
-          .append(parentNode.getValue())
-          .append("</summary>")
-          .append("<ul>");
-      parentNode.getChildren().forEach(child -> generateHtml(child, html));
-      html.append("</ul>").append("</details>").append("</li>");
-    }
-    if (parentNode.getValue().equals(MultiwayTree.ROOT_NODE_NAME)) {
-      html.append("</ul>");
-    }
+    return "";
   }
 
   private static boolean isLoadDataFromCsv(String sql) {
