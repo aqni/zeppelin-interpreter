@@ -43,6 +43,8 @@ mvn versions:set -DnewVersion=0.7.2
 
 下载解压后，能够得到 `zeppelin-0.8.2-bin-netinst` 文件夹，进入其中。
 
+**注：Windows环境下，建议下载0.8.2，Zeppelin更高的版本不再支持windows运行**
+
 #### 修改Zeppelin设置（可选）
 
 ##### 修改Zeppelin端口
