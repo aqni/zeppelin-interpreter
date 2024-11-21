@@ -75,7 +75,7 @@ export JAVA_HOME=
 
 #### 接入IGinX Zeppelin Interpreter
 
-在 `interpreter` 文件夹下新建一个文件夹`iginx`，将构建好的 `zeppelin-iginx-VERSION-shaded.jar` 包放入其中即可。
+在 `interpreter` 文件夹下，通过复制名为“${interpreter.name}”的目录，新建一个文件夹`IGinX`，将构建好的 `zeppelin-iginx-VERSION-shaded.jar` 包放入该目录下即可。
 
 #### 启动IGinX
 
