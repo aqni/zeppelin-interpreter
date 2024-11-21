@@ -40,8 +40,6 @@ mvn versions:set -DnewVersion=0.7.2
 
 这两个包的区别是 `all` 包自带了 zeppelin 所有的解释器，而 `netinst` 只带有少量解释器，因为我们使用 IGinX 自行实现的解释器，下载 `netinst` 版本即可。
 
-![img](./images/zeppelin_download_page.png)
-
 下载解压后，能够得到 `zeppelin-0.8.2-bin-netinst` 文件夹，进入其中。
 
 #### 修改Zeppelin设置（可选）
