@@ -47,7 +47,7 @@ mvn versions:set -DnewVersion=0.7.2
 
 ##### 修改Zeppelin端口
 
-Zeppelin默认占用 `8080` 端口，一般 8080 端口常被占用，建议按照以下步骤修改 Zeppelin 端口。
+Zeppelin默认占用 `8080` 端口，**一般 8080 端口常被占用，建议按照以下步骤修改 Zeppelin 端口**。
 
 在 `conf` 文件夹下找到文件 `zeppelin-site.xml.template` ，复制一份并改名为 `zeppelin-site.xml`。
 
@@ -72,6 +72,7 @@ Zeppelin默认占用 `8080` 端口，一般 8080 端口常被占用，建议按�
 ```Shell
 export JAVA_HOME=
 ```
+**在Windows环境下，建议在系统环境中配置Path及JAVA_HOME，使得java及其相关组件程序能直接被运行。**
 
 #### 接入IGinX Zeppelin Interpreter
 
