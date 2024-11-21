@@ -47,7 +47,7 @@ mvn versions:set -DnewVersion=0.7.2
 
 ##### 修改Zeppelin端口
 
-Zeppelin默认占用 `8080` 端口，如果 8080 端口已被占用，可以按照以下步骤修改 Zeppelin 端口。
+Zeppelin默认占用 `8080` 端口，一般 8080 端口常被占用，建议按照以下步骤修改 Zeppelin 端口。
 
 在 `conf` 文件夹下找到文件 `zeppelin-site.xml.template` ，复制一份并改名为 `zeppelin-site.xml`。
 
