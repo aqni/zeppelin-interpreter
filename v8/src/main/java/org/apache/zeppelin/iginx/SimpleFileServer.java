@@ -198,11 +198,7 @@ public class SimpleFileServer {
           bw.close();
         }
         LOGGER.info(
-            "received parameters:{},{},{}",
-            zeppelinUrl,
-            noteBookId,
-            paragraphId,
-            fileName);
+            "received parameters:{},{},{},{}", zeppelinUrl, noteBookId, paragraphId, fileName);
         String result =
             HttpUtil.sendPost(
                 String.format("%s/api/notebook/run/%s/%s", zeppelinUrl, noteBookId, paragraphId),
