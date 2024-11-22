@@ -27,6 +27,15 @@
             <version>2.10.1</version>
         </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>iginx</id>
+            <name>IGinX GitHub repository</name>
+            <url>https://iginx-thu.github.io/IGinX/maven-repo</url>
+        </repository>
+    </repositories>
+
     <build>
         <pluginManagement>
             <plugins>

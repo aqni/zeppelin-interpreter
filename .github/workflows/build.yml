@@ -9,17 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
       - uses: actions/setup-java@v4
         with:
           java-version: "8"
           distribution: "temurin"
           cache: "maven"
-      - name: install IGinX
-        working-directory: iginx
-        run: |
-          mvn install --batch-mode -P !format -DskipTests=true
       - name: package Zeppelin interpreter
         run: |
           mvn package --batch-mode -DskipTests=true
