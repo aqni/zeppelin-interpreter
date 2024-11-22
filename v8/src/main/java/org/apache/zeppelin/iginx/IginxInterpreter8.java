@@ -13,6 +13,8 @@ import cn.edu.tsinghua.iginx.thrift.SqlType;
 import cn.edu.tsinghua.iginx.utils.FormatUtils;
 import cn.edu.tsinghua.iginx.utils.Pair;
 import java.io.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.file.*;
 import java.security.InvalidParameterException;
@@ -23,12 +25,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.apache.zeppelin.iginx.util.HttpUtil;
+import org.apache.zeppelin.iginx.util.SqlCmdUtil;
 import org.apache.zeppelin.interpreter.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class IginxInterpreter8 extends Interpreter {
+  private static final Logger LOGGER = LoggerFactory.getLogger(IginxInterpreter8.class);
 
   private static final String IGINX_HOST = "iginx.host";
   private static final String IGINX_PORT = "iginx.port";
@@ -41,6 +51,10 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String IGINX_OUTFILE_MAX_SIZE = "iginx.outfile.max.size";
   private static final String IGINX_FILE_HTTP_PORT = "iginx.http.file.port";
   private static final String IGINX_ZEPPELIN_IP = "iginx.zeppelin.ip";
+  private static final String IGINX_UPLOAD_FILE_MAX_SIZE = "iginx.zeppelin.upload.file.max.size";
+  private static final String IGINX_UPLOAD_DIR_MAX_SIZE = "iginx.zeppelin.upload.dir.max.size";
+  private static final String IGINX_NOTE_FONT_SIZE_ENABLE = "iginx.zeppelin.note.font.size.enable";
+  private static final String IGINX_NOTE_FONT_SIZE = "iginx.zeppelin.note.font.size";
 
   private static final String DEFAULT_HOST = "127.0.0.1";
   private static final String DEFAULT_PORT = "6888";
@@ -52,6 +66,11 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String DEFAULT_OUTFILE_MAX_NUM = "100";
   private static final String DEFAULT_OUTFILE_MAX_SIZE = "10240";
   private static final String DEFAULT_FILE_HTTP_PORT = "18082";
+  private static final String DEFAULT_UPLOAD_DIR = "uploads";
+  private static final String DEFAULT_UPLOAD_FILE_MAX_SIZE = "10"; // GB
+  private static final String DEFAULT_UPLOAD_DIR_MAX_SIZE = "200"; // GB
+  private static final String DEFAULT_NOTE_FONT_SIZE_ENABLE = "false";
+  private static final String DEFAULT_NOTE_FONT_SIZE = "9.0";
 
   private static final String TAB = "\t";
   private static final String NEWLINE = "\n";
@@ -72,6 +91,10 @@ public class IginxInterpreter8 extends Interpreter {
   private int outfileMaxSize = 0;
   private int fileHttpPort = 0;
   private String localIpAddress = "";
+  private long uploadFileMaxSize = 0;
+  private long uploadDirMaxSize = 0;
+  private boolean noteFontSizeEnable = false;
+  private double noteFontSize = 9.0;
 
   private Queue<String> downloadFileQueue = new LinkedList<>();
   private Queue<Double> downloadFileSizeQueue = new LinkedList<>();
@@ -80,9 +103,10 @@ public class IginxInterpreter8 extends Interpreter {
   private String outfileRegex =
       "(?i)(\\bINTO\\s+OUTFILE\\s+\")(.*?)(\"\\s+AS\\s+STREAM)(?:\\s+showimg\\s+(true|false))?\\s*;$";
 
+  private static Set<String> uploadParagraphSet = new HashSet<>();
+
   private static Map<String, CompletableFuture<InterpreterResult>> taskMap =
       new ConcurrentHashMap<>();
-
   private Session session;
 
   private Exception exception;
@@ -120,6 +144,20 @@ public class IginxInterpreter8 extends Interpreter {
     fileHttpPort =
         Integer.parseInt(
             properties.getProperty(IGINX_FILE_HTTP_PORT, DEFAULT_FILE_HTTP_PORT).trim());
+    uploadFileMaxSize =
+        Long.parseLong(
+            properties
+                .getProperty(IGINX_UPLOAD_FILE_MAX_SIZE, DEFAULT_UPLOAD_FILE_MAX_SIZE)
+                .trim());
+    uploadDirMaxSize =
+        Long.parseLong(
+            properties.getProperty(IGINX_UPLOAD_DIR_MAX_SIZE, DEFAULT_UPLOAD_DIR_MAX_SIZE).trim());
+    noteFontSizeEnable =
+        Boolean.parseBoolean(
+            properties.getProperty(IGINX_NOTE_FONT_SIZE_ENABLE, DEFAULT_NOTE_FONT_SIZE_ENABLE));
+    noteFontSize =
+        Double.parseDouble(
+            properties.getProperty(IGINX_NOTE_FONT_SIZE, DEFAULT_NOTE_FONT_SIZE).trim());
 
     localIpAddress = getLocalHostExactAddress();
     if (localIpAddress == null) {
@@ -135,7 +173,8 @@ public class IginxInterpreter8 extends Interpreter {
     }
 
     try {
-      fileServer = new SimpleFileServer(fileHttpPort, outfileDir);
+      fileServer =
+          new SimpleFileServer(fileHttpPort, outfileDir, DEFAULT_UPLOAD_DIR, uploadDirMaxSize);
       fileServer.start();
       loadNGINXStaticFilesInfo();
     } catch (IOException e) {
@@ -167,6 +206,11 @@ public class IginxInterpreter8 extends Interpreter {
 
     String[] cmdList = parseMultiLinesSQL(st);
 
+    if (hasMultiLoadData(cmdList)) {
+      return new InterpreterResult(
+          InterpreterResult.Code.ERROR,
+          "Only one \"LOAD DATA\" statement can be executed at a time.");
+    }
     CompletableFuture<InterpreterResult> future = processSqlListAsync(cmdList, context);
     InterpreterResult interpreterResult;
 
@@ -175,8 +219,7 @@ public class IginxInterpreter8 extends Interpreter {
     } catch (Exception e) {
       interpreterResult = new InterpreterResult(InterpreterResult.Code.ERROR, e.getMessage());
     }
-
-    return interpreterResult;
+    return tuneFontSize(interpreterResult, context);
   }
 
   /**
@@ -197,11 +240,11 @@ public class IginxInterpreter8 extends Interpreter {
         () -> {
           InterpreterResult interpreterResult = null;
           for (String cmd : sqlList) {
-            interpreterResult = processSql(cmd);
+            interpreterResult = processSql(cmd, context);
             if (isSessionClosedError(interpreterResult)) {
               if (reopenSession()) {
                 // 暂停，等待连接建立
-                interpreterResult = processSql(cmd);
+                interpreterResult = processSql(cmd, context);
               } else {
                 interpreterResult.add(
                     InterpreterResult.Type.TEXT,
@@ -215,7 +258,7 @@ public class IginxInterpreter8 extends Interpreter {
     return future;
   }
 
-  private InterpreterResult processSql(String sql) {
+  private InterpreterResult processSql(String sql, InterpreterContext context) {
     try {
       // 如果sql中有outfile关键字，则进行特殊处理，将结果下载到zeppelin所在的服务器上，并在表单中返回下载链接
       String outfileRegex =
@@ -230,7 +273,7 @@ public class IginxInterpreter8 extends Interpreter {
         else return processOutfileSql(sql, matcher.group(1), false);
       }
       if (isLoadDataFromCsv(sql.toLowerCase())) {
-        return processLoadCsv(sql);
+        return processLoadCsv(sql, context);
       } else if (isCreateFunction(sql.toLowerCase())) {
         return processCreateFunction(sql);
       }
@@ -293,40 +336,113 @@ public class IginxInterpreter8 extends Interpreter {
    * @throws SessionException
    * @throws IOException
    */
-  private InterpreterResult processLoadCsv(String sql) throws SessionException, IOException {
+  private InterpreterResult processLoadCsv(String sql, InterpreterContext context)
+      throws SessionException, IOException {
     String msg;
     InterpreterResult interpreterResult;
+    String uploadParagraphKey = context.getParagraphId() + "_UPLOAD_FILE";
+    /* response upload file form, user will rerun paragraph when upload finished. */
+    LOGGER.info("+++++++Id={}, paragraphId={}", context.getNoteId(), uploadParagraphKey);
+    if (!uploadParagraphSet.contains(uploadParagraphKey)) {
+      try (InputStream inputStream =
+              IginxInterpreter8.class.getClassLoader().getResourceAsStream("uploadForm.html");
+          BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+        StringBuilder content = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+          content.append(line).append("\n");
+        }
+        String html =
+            content
+                .toString()
+                .replace("UPLOAD_URL", ":" + fileHttpPort + SimpleFileServer.PREFIX_UPLOAD)
+                .replace("PARAGRAPH_ID_VALUE", context.getParagraphId())
+                .replace("NOTEBOOK_ID_VALUE", context.getNoteId());
+        interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
+        interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.HTML, html));
+        uploadParagraphSet.add(uploadParagraphKey);
+        return interpreterResult;
+      } catch (IOException e) {
+        LOGGER.error("load html error", e);
+      }
+      return new InterpreterResult(InterpreterResult.Code.ERROR);
+    }
 
-    SessionExecuteSqlResult res = session.executeSql(sql);
-    String path = res.getLoadCsvPath();
+    try {
+      LOGGER.info("load data sql execute, sql={}", sql);
+      SessionExecuteSqlResult res = session.executeSql(sql);
+      String parseErrorMsg = res.getParseErrorMsg();
+      if (parseErrorMsg != null && !parseErrorMsg.isEmpty()) {
+        msg = "Error: " + res.getParseErrorMsg();
+        interpreterResult = new InterpreterResult(InterpreterResult.Code.ERROR, msg);
 
-    String parseErrorMsg = res.getParseErrorMsg();
-    if (parseErrorMsg != null && !parseErrorMsg.isEmpty()) {
-      msg = "Error: " + res.getParseErrorMsg();
-      interpreterResult = new InterpreterResult(InterpreterResult.Code.ERROR, msg);
+        return interpreterResult;
+      }
+      String path = convertPath(res.getLoadCsvPath(), sql);
+      File file = new File(path);
+      if (!file.exists()) {
+        throw new InvalidParameterException(path + " does not exist!");
+      }
+      if (!file.isFile()) {
+        throw new InvalidParameterException(path + " is not a file!");
+      }
+      String[] paths = sql.split(" ");
+      for (int i = 0; i < paths.length; i++) {
+        if ("INFILE".equalsIgnoreCase(paths[i])) {
+          paths[i + 1] = "\"" + path + "\"";
+          break;
+        }
+      }
+      sql = StringUtils.join(paths, " ");
+      double fileSizeGB =
+          new BigDecimal(file.length() / 1024 / 1024 / 1024)
+              .setScale(2, RoundingMode.HALF_UP)
+              .doubleValue();
+      if (fileSizeGB > uploadFileMaxSize) {
+        throw new InvalidParameterException(
+            "Upload failed! The file size exceeds the limit!"
+                + " It needs to be less than 10GB, but the actual upload size was "
+                + fileSizeGB
+                + "GB.");
+      }
 
+      List<String> columns = null;
+      long recordsNum = 0;
+      byte[] bytes = FileUtils.readFileToByteArray(file);
+      ByteBuffer csvFile = ByteBuffer.wrap(bytes);
+      Pair<List<String>, Long> pair = session.executeLoadCSV(sql, csvFile);
+      columns = pair.k;
+      recordsNum = pair.v;
+
+      msg = "Successfully write " + recordsNum + " record(s) to: " + columns;
+      interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
+      interpreterResult.add(InterpreterResult.Type.TEXT, msg);
       return interpreterResult;
+    } finally {
+      uploadParagraphSet.remove(uploadParagraphKey);
+    }
+  }
+
+  /** replace user local path by absolute path on server */
+  private String convertPath(String inputPath, String sql) throws IOException {
+    String path;
+    Path pathObj;
+    if (SystemUtils.IS_OS_WINDOWS) {
+      LOGGER.info("current os is Windows");
+      path = inputPath.replace("/", "\\");
+      pathObj = Paths.get(path);
+    } else {
+      LOGGER.info("current os is Linux or Mac");
+      path = inputPath.replace("\\", "/");
+      pathObj = Paths.get(path);
     }
 
-    File file = new File(path);
-    if (!file.exists()) {
-      throw new InvalidParameterException(path + " does not exist!");
-    }
-    if (!file.isFile()) {
-      throw new InvalidParameterException(path + " is not a file!");
-    }
-
-    byte[] bytes = FileUtils.readFileToByteArray(file);
-    ByteBuffer csvFile = ByteBuffer.wrap(bytes);
-    Pair<List<String>, Long> pair = session.executeLoadCSV(sql, csvFile);
-    List<String> columns = pair.k;
-    long recordsNum = pair.v;
-
-    msg = "Successfully write " + recordsNum + " record(s) to: " + columns;
-    interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
-    interpreterResult.add(InterpreterResult.Type.TEXT, msg);
-
-    return interpreterResult;
+    path =
+        HttpUtil.getCurrentPath(DEFAULT_UPLOAD_DIR)
+            + File.separator
+            + pathObj.getFileName().toString();
+    LOGGER.info("converted path is {}", path);
+    return path;
   }
 
   private InterpreterResult processCreateFunction(String sql) {
@@ -445,7 +561,7 @@ public class IginxInterpreter8 extends Interpreter {
       }
     }
     // 构建表格
-    String downloadLink = "%%html<a href=\"%s\" download=\"%s\">点击下载</a>";
+    String downloadLink = "<a href=\"%s\" download=\"%s\">点击下载</a>";
     StringBuilder builder = new StringBuilder();
     builder.append("文件名").append(TAB).append("下载链接").append(NEWLINE);
     String httpPrefix =
@@ -749,7 +865,7 @@ public class IginxInterpreter8 extends Interpreter {
 
   private String convertToHTMLString(String str) {
     return str.contains("\n")
-        ? "%html" + str.replace("\n", "<br>").replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
+        ? str.replace("\n", "<br>").replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;")
         : str;
   }
 
@@ -819,5 +935,91 @@ public class IginxInterpreter8 extends Interpreter {
       return false;
     }
     return true;
+  }
+
+  private boolean hasMultiLoadData(String[] cmdList) {
+    int loadDataSqlNum = 0;
+    for (String str : cmdList) {
+      if (SqlCmdUtil.removeExtraSpaces(str).toUpperCase().contains("LOAD DATA FROM INFILE")) {
+        loadDataSqlNum++;
+      }
+    }
+    return loadDataSqlNum > 1;
+  }
+  /**
+   * 根据配置调整字体大小 如果配激活了note全局字体大小，使用配的字体大小 如果没有激活，取paragraph设置的字体大小
+   *
+   * @param interpreterResult
+   * @param context
+   * @return InterpreterResult
+   */
+  public InterpreterResult tuneFontSize(
+      InterpreterResult interpreterResult, InterpreterContext context) {
+    int hTagNumber;
+    Double fontSize = (Double) context.getConfig().getOrDefault("fontSize", "9.0");
+    if (noteFontSizeEnable) {
+      fontSize = noteFontSize;
+    }
+    if (fontSize <= 10) {
+      hTagNumber = 6;
+    } else if (fontSize <= 12) {
+      hTagNumber = 5;
+    } else if (fontSize <= 14) {
+      hTagNumber = 4;
+    } else if (fontSize <= 16) {
+      hTagNumber = 3;
+    } else if (fontSize <= 18) {
+      hTagNumber = 2;
+    } else if (fontSize <= 20) {
+      hTagNumber = 1;
+    } else {
+      hTagNumber = 6;
+    }
+    LOGGER.info(
+        "NoteId={},ParagraphId={},fontSizeEnable={},fontSize={}",
+        context.getNoteId(),
+        context.getParagraphId(),
+        fontSize,
+        hTagNumber);
+    List<InterpreterResultMessage> message = interpreterResult.message();
+    return new InterpreterResult(
+        interpreterResult.code(),
+        message.stream()
+            .map(
+                item -> {
+                  LOGGER.debug("type={},data={}", item.getType(), item.getData());
+                  if (item.getType().equals(InterpreterResult.Type.TABLE)) {
+                    String collect =
+                        Arrays.stream(item.getData().split(NEWLINE))
+                                .limit(1)
+                                .collect(Collectors.joining(NEWLINE))
+                            + NEWLINE
+                            + Arrays.stream(item.getData().split(NEWLINE))
+                                .skip(1)
+                                .map(
+                                    line ->
+                                        Arrays.stream(line.split(TAB))
+                                            .map(
+                                                val ->
+                                                    String.format(
+                                                        "%%html<h%d>%s</h%d>",
+                                                        hTagNumber, val, hTagNumber))
+                                            .collect(Collectors.joining(TAB)))
+                                .collect(Collectors.joining(NEWLINE));
+                    return new InterpreterResultMessage(item.getType(), collect);
+                  } else if (item.getType().equals(InterpreterResult.Type.TEXT)) {
+                    return new InterpreterResultMessage(
+                        InterpreterResult.Type.HTML,
+                        String.format("<h%d>%s</h%d>", hTagNumber, item.getData(), hTagNumber));
+                  } else if (item.getType().equals(InterpreterResult.Type.HTML)) {
+                    return new InterpreterResultMessage(
+                        item.getType(),
+                        String.format("<h%d>%s</h%d>", hTagNumber, item.getData(), hTagNumber));
+                  } else {
+                    LOGGER.warn("unexpected result type {}", item.getType());
+                  }
+                  return new InterpreterResultMessage(item.getType(), item.getData());
+                })
+            .collect(Collectors.toList()));
   }
 }

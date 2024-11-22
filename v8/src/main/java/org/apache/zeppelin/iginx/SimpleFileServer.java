@@ -3,34 +3,42 @@ package org.apache.zeppelin.iginx;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Enumeration;
-import java.util.logging.FileHandler;
+import org.apache.zeppelin.iginx.util.HttpUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SimpleFileServer {
+  private static final Logger LOGGER = LoggerFactory.getLogger(SimpleFileServer.class);
 
   public static String PREFIX = "/files";
+  public static String PREFIX_UPLOAD = "/files/upload";
   private int port;
   private String fileDir;
-
+  private String uploadFileDir;
+  private Long uploadDirMaxSize;
   protected static final boolean isOnWin =
       System.getProperty("os.name").toLowerCase().contains("win");
 
   private HttpServer httpServer = null;
 
-  public SimpleFileServer(int port, String fileDir) {
+  public SimpleFileServer(int port, String fileDir, String uploadFileDir, long uploadDirMaxSize) {
     this.port = port;
     this.fileDir = fileDir;
+    this.uploadFileDir = uploadFileDir;
+    this.uploadDirMaxSize = uploadDirMaxSize;
   }
 
   public void start() throws IOException {
     // 检测端口是否被占用，如果占用则kill掉
     try {
       new Socket("localhost", port).close();
+      LOGGER.info("SimpleFileServer started on port {}", port);
       if (isOnWin) {
         Runtime.getRuntime()
             .exec(
@@ -42,10 +50,19 @@ public class SimpleFileServer {
       }
     } catch (IOException e) {
       // do nothing
+      LOGGER.error("restart server error.", e);
     }
-    httpServer = HttpServer.create(new InetSocketAddress(port), 0);
-    httpServer.createContext(PREFIX, new FileHandler(fileDir));
-    httpServer.start();
+
+    try {
+      LOGGER.info("Starting SimpleFileServer on port " + port);
+      httpServer = HttpServer.create(new InetSocketAddress(port), 0);
+      httpServer.createContext(PREFIX, new FileHandler(fileDir));
+      httpServer.createContext(PREFIX_UPLOAD, new UploadHandler(uploadFileDir));
+      httpServer.start();
+    } catch (IOException e) {
+      LOGGER.error("Error starting SimpleFileServer", e);
+      throw new RuntimeException(e);
+    }
   }
 
   public void stop() {
@@ -106,6 +123,121 @@ public class SimpleFileServer {
       }
     }
   }
+
+  /** upload csv file handler */
+  class UploadHandler implements HttpHandler {
+    private final String basePath;
+
+    public UploadHandler(String basePath) {
+      this.basePath = basePath;
+    }
+
+    @Override
+    public void handle(HttpExchange exchange) {
+
+      String zeppelinUrl = "", noteBookId = "", paragraphId = "", fileName = "";
+      BufferedWriter bw = null;
+      BufferedReader br = null;
+      String line;
+      boolean isContent = false;
+      try {
+        if (!"POST".equals(exchange.getRequestMethod())) {
+          exchange.sendResponseHeaders(405, -1);
+          return;
+        }
+        exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+        File uploadDir = new File(HttpUtil.getCurrentPath(basePath));
+        if (!uploadDir.exists()) {
+          uploadDir.mkdirs();
+        }
+        br =
+            new BufferedReader(
+                new InputStreamReader(new BufferedInputStream(exchange.getRequestBody())));
+        /* parse form-data */
+        while ((line = br.readLine()) != null) {
+          LOGGER.debug(line);
+          if (isContent) {
+            if (line.trim().isEmpty()) {
+              break;
+            }
+            bw.write(line);
+            bw.newLine();
+          }
+          if (line.startsWith("------")) {
+            line = br.readLine();
+            if (line.contains("filename=")) {
+              fileName = line.substring(line.indexOf("filename=") + 10, line.length() - 1);
+              br.readLine();
+              br.readLine();
+              isContent = true;
+              bw =
+                  new BufferedWriter(
+                      new OutputStreamWriter(
+                          Files.newOutputStream(new File(uploadDir, fileName).toPath())));
+            } else {
+              String paramName = line.substring(line.indexOf("name=") + 6, line.length() - 1);
+              br.readLine();
+              switch (paramName) {
+                case "zeppelinUrl":
+                  zeppelinUrl = br.readLine().trim();
+                  break;
+                case "noteBookId":
+                  noteBookId = br.readLine().trim();
+                  break;
+                case "paragraphId":
+                  paragraphId = br.readLine().trim();
+                  break;
+                default:
+                  LOGGER.warn("unexpected params received {}", br.readLine().trim());
+                  break;
+              }
+            }
+          }
+        }
+        if (bw != null) {
+          bw.close();
+        }
+        LOGGER.info(
+            "received parameters:{},{},{},{}", zeppelinUrl, noteBookId, paragraphId, fileName);
+        String result =
+            HttpUtil.sendPost(
+                String.format("%s/api/notebook/run/%s/%s", zeppelinUrl, noteBookId, paragraphId),
+                null);
+        LOGGER.info("result of rerun paragraph command: {}", result);
+        exchange.sendResponseHeaders(200, 0);
+      } catch (IOException e) {
+        LOGGER.error("Error uploading file", e);
+        throw new RuntimeException(e);
+      } finally {
+        exchange.close();
+        cleanUpLoadDir();
+      }
+    }
+  }
+
+  /** clean earliest files when upload file director exceeds 100GB */
+  public void cleanUpLoadDir() {
+    new Thread(
+            () -> {
+              File directory = new File(uploadFileDir);
+              File[] files = directory.listFiles();
+              if (files != null) {
+                // order by lastModified -  asc
+                Arrays.sort(files, Comparator.comparingLong(File::lastModified));
+                long totalSize = Arrays.stream(files).mapToLong(File::length).sum();
+                for (File file : files) {
+                  if (totalSize <= uploadDirMaxSize) {
+                    break;
+                  }
+                  LOGGER.info("Deleted file {},{}", file.getAbsolutePath(), file.length());
+                  totalSize = totalSize - file.length();
+                  file.delete();
+                }
+              }
+            })
+        .start();
+  }
+
   /**
    * 获取本地主机地址，普通方法会获取到回环地址or错误网卡地址，因此需要使用更复杂的方法获取
    *
