@@ -5,7 +5,7 @@
 
     <groupId>cn.edu.tsinghua</groupId>
     <artifactId>zeppelin-iginx</artifactId>
-    <version>0.8.0-SNAPSHOT</version>
+    <version>0.7.2</version>
     <packaging>pom</packaging>
 
     <modules>
@@ -20,13 +20,6 @@
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
-    <dependencies>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.10.1</version>
-        </dependency>
-    </dependencies>
 
     <repositories>
         <repository>
@@ -35,7 +28,13 @@
             <url>https://iginx-thu.github.io/IGinX/maven-repo</url>
         </repository>
     </repositories>
-
+    <dependencies>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+    </dependencies>
     <build>
         <pluginManagement>
             <plugins>
