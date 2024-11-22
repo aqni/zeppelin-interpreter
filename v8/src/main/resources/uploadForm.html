@@ -1,0 +1,104 @@
+<head>
+    <meta charset="UTF-8">
+    <title>Please upload csv first</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        h6 {
+            color: #333;
+        }
+
+        .file-upload-container {
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            width: 60%;
+        }
+
+        input[type="file"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            width: 60%;
+            margin-bottom: 5px;
+            margin-right: 5px;
+            float:left;
+            min-width:50%;
+        }
+
+        button {
+            background-color: #3071a9;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        .iginxSpan {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+<!--<h6>Please upload csv first</h6>-->
+<div class="file-upload-container">
+    <input type="file" id="fileInput" accept=".csv">
+    <button onclick="uploadFile()">Upload</button>
+    <span id="iginxNotebookId" class="iginxSpan">NOTEBOOK_ID_VALUE</span>
+    <span id="iginxParagraphId" class="iginxSpan">PARAGRAPH_ID_VALUE</span>
+</div>
+
+<script>
+    function uploadFile() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('please select a csv file!');
+            return;
+        }
+
+        const notebookId = document.getElementById("iginxNotebookId").innerText;
+        const paragraphId = document.getElementById("iginxParagraphId").innerText;
+        const formData = new FormData();
+        formData.append("zeppelinUrl", getURLWithoutPort(window.location.href, true));
+        formData.append("noteBookId", notebookId);
+        formData.append("paragraphId", paragraphId);
+        formData.append('file', file);
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', getURLWithoutPort(window.location.href, false) + 'UPLOAD_URL');
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                console.log('file upload success! ' + file.name);
+                // double click "output" button to force refresh the paragraph
+                let element = document.querySelector('[id=\"'+paragraphId+'_control\"] .ng-scope .icon-book-open');
+                element.click();
+                element.click();
+            } else {
+                alert('file upload failed!');
+            }
+        };
+        xhr.onerror= function(e) {
+            console.log(e);
+            let element = document.querySelector('[id=\"'+paragraphId+'_control\"] .ng-scope .icon-control-play');
+            element.click();
+        };
+        xhr.send(formData);
+    }
+
+    function getURLWithoutPort(url,withPort) {
+        const urlObj = new URL(url);
+        if(withPort){
+            return `${urlObj.protocol}//${urlObj.hostname}:${urlObj.port}`;
+        }else{
+            return `${urlObj.protocol}//${urlObj.hostname}`;
+        }
+
+    }
+</script>
+</body>

@@ -16,9 +16,25 @@
 mvn clean package
 ```
 
+本地构建时，建议使用参数`-Dmaven.test.skip=true`跳过本地单元测试
+**注意：如果出现找不到iginx相关jar包的情况，看看本地在maven的settings.xml是否配置了镜像站，一般删除镜像站配置后即可正确编译**
+
 构建成功后，在 `target` 文件夹下找到 `zeppelin-iginx-VERSION-shaded.jar` 文件。
 
 在下一步部署 Zeppelin 时我们需要用到这个包。
+
+##### 注意事项：
+
+1. 克隆时需要将iginx子目录同时克隆下来
+
+```
+git clone --recursive {{gitUrl}}
+```
+
+2. thrift compiler 需要加到系统环境变量中 PATH
+
+可以通过下面的链接获取thrift compiler相应版本，此处以windows为例
+https://github.com/IGinX-THU/IGinX-resources/raw/main/resources/thrift_0.16.0_win.exe
 
 ### 修改项目版本
 
@@ -40,15 +56,15 @@ mvn versions:set -DnewVersion=0.7.2
 
 这两个包的区别是 `all` 包自带了 zeppelin 所有的解释器，而 `netinst` 只带有少量解释器，因为我们使用 IGinX 自行实现的解释器，下载 `netinst` 版本即可。
 
-![img](./images/zeppelin_download_page.png)
-
 下载解压后，能够得到 `zeppelin-0.8.2-bin-netinst` 文件夹，进入其中。
+
+**注：Windows环境下，建议下载0.8.2，Zeppelin更高的版本不再支持windows运行**
 
 #### 修改Zeppelin设置（可选）
 
 ##### 修改Zeppelin端口
 
-Zeppelin默认占用 `8080` 端口，如果 8080 端口已被占用，可以按照以下步骤修改 Zeppelin 端口。
+Zeppelin默认占用 `8080` 端口，**一般 8080 端口常被占用，建议按照以下步骤修改 Zeppelin 端口**。
 
 在 `conf` 文件夹下找到文件 `zeppelin-site.xml.template` ，复制一份并改名为 `zeppelin-site.xml`。
 
@@ -73,10 +89,11 @@ Zeppelin默认占用 `8080` 端口，如果 8080 端口已被占用，可以按�
 ```Shell
 export JAVA_HOME=
 ```
+**在Windows环境下，建议在系统环境中配置Path及JAVA_HOME，使得java及其相关组件程序能直接被运行。**
 
 #### 接入IGinX Zeppelin Interpreter
 
-在 `interpreter` 文件夹下新建一个文件夹`iginx`，将构建好的 `zeppelin-iginx-VERSION-shaded.jar` 包放入其中即可。
+在 `interpreter` 文件夹下，通过复制名为“${interpreter.name}”的目录，新建一个文件夹`IGinX`，将构建好的 `zeppelin-iginx-VERSION-shaded.jar` 包放入该目录下即可。
 
 #### 启动IGinX
 
@@ -148,8 +165,11 @@ docker run -v ~/code/zeppelin-interpreter/:/opt/zeppelin/interpreter/iginx --pri
 8. iginx.outfile.max.num：IGinX OUTFILE 文件夹中存放的总文件夹数量限制，每次查询会创建一个文件夹，超出后会删除最早的文件夹。
 9. iginx.outfile.max.size：IGinX OUTFILE 文件夹中存储的总文件大小限制，单位为 MB，超出后会删除最早的文件。
 10. **iginx.file.http.port**：IGinX 中文件下载服务要占用的端口，默认为 18082，如果需要修改端口则修改此处。
-11. **iginx.file.http.host**：IGinX 中文件下载服务要占用的IP，默认为 127.0.0.1。
-
+11. **iginx.zeppelin.upload.dir.max.size**：IGinX上传文件夹大小限制，单位GB，超出后会删除最早的文件。
+12. **iginx.zeppelin.upload.file.max.size**：IGinX上传文件大小限制，单位GB。
+13. **iginx.zeppelin.note.font.size.enable**:是否激活Note范围内统一字体尺寸，默认不开启。
+14. **iginx.zeppelin.note.font.size**：Note范围内字体尺寸，默认16，可选值9-20。
+15. **iginx.file.http.host**：IGinX 中文件下载服务要占用的IP，默认为 127.0.0.1。
 ### 新建IGinX笔记本
 
 点击红框内的 Create new note
@@ -175,6 +195,11 @@ IGinX Zeppelin 解释器是需要连接 IGinX 的，如果我们重启了 IGinX�
 直接在笔记本中输入 IGinX 语句即可。
 
 ![img](./images/iginx_sql.png)
+
+#### 特别说明
+##### LOAD DATA 命令
+输入LOAD DATA 命令后，需要先点击执行按钮调出文件选择控件，命令中的文件名（1处）与选择文件控件中的名称（2处，选择文件后自动填充，不可手动修改）需要保持一致。
+![img.png](img.png)
 
 ### 使用RESTful语句
 
