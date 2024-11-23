@@ -28,7 +28,13 @@
             <url>https://iginx-thu.github.io/IGinX/maven-repo</url>
         </repository>
     </repositories>
-
+    <dependencies>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+    </dependencies>
     <build>
         <pluginManagement>
             <plugins>

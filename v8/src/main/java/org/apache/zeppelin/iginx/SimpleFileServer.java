@@ -18,6 +18,7 @@ public class SimpleFileServer {
 
   public static String PREFIX = "/files";
   public static String PREFIX_UPLOAD = "/files/upload";
+  public static String PREFIX_GRAPH = "/graphs";
   private int port;
   private String fileDir;
   private String uploadFileDir;
@@ -58,6 +59,7 @@ public class SimpleFileServer {
       httpServer = HttpServer.create(new InetSocketAddress(port), 0);
       httpServer.createContext(PREFIX, new FileHandler(fileDir));
       httpServer.createContext(PREFIX_UPLOAD, new UploadHandler(uploadFileDir));
+      httpServer.createContext(PREFIX_GRAPH, new GraphHandler(fileDir));
       httpServer.start();
     } catch (IOException e) {
       LOGGER.error("Error starting SimpleFileServer", e);
@@ -68,6 +70,50 @@ public class SimpleFileServer {
   public void stop() {
     if (httpServer != null) {
       httpServer.stop(0);
+    }
+  }
+
+  static class GraphHandler implements HttpHandler {
+    private String basePath;
+
+    public GraphHandler(String basePath) {
+      this.basePath = basePath;
+    }
+
+    @Override
+    public void handle(HttpExchange exchange) throws IOException {
+      exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+
+      // 获取请求的文件名，并构建文件路径
+      String requestPath = exchange.getRequestURI().getPath();
+      File file = new File(basePath + requestPath);
+      if (file.exists() && !file.isDirectory()) {
+        // 设置响应头为文件下载
+        if (requestPath.endsWith("html")) {
+          exchange.getResponseHeaders().set("Content-Type", "text/html");
+        } else {
+          exchange.getResponseHeaders().set("Content-Type", "text/plain");
+        }
+        exchange.sendResponseHeaders(200, file.length());
+
+        // 读取文件并写入响应体
+        OutputStream os = exchange.getResponseBody();
+        FileInputStream fs = new FileInputStream(file);
+        final byte[] buffer = new byte[0x10000];
+        int count = 0;
+        while ((count = fs.read(buffer)) >= 0) {
+          os.write(buffer, 0, count);
+        }
+        fs.close();
+        os.close();
+      } else {
+        // 如果文件不存在，返回404错误，响应体为"404 (Not Found)，可能文件已被删除，请重新执行查询“
+        String response = "404 (Not Found)，可能文件已被删除，请重新执行查询";
+        exchange.sendResponseHeaders(404, response.length());
+        OutputStream os = exchange.getResponseBody();
+        os.write(response.getBytes());
+        os.close();
+      }
     }
   }
 
