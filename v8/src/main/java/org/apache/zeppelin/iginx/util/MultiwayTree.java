@@ -3,7 +3,7 @@ package org.apache.zeppelin.iginx.util;
 import org.apache.commons.lang3.StringUtils;
 
 public class MultiwayTree {
-  public static final String ROOT_NODE_NAME = "根节点";
+  public static final String ROOT_NODE_NAME = "数据资产";
   public static final String ROOT_NODE_PATH = "root";
 
   public TreeNode getRoot() {
