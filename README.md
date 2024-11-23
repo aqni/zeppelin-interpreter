@@ -17,6 +17,7 @@ mvn clean package
 ```
 
 本地构建时，建议使用参数`-Dmaven.test.skip=true`跳过本地单元测试
+
 **注意：如果出现找不到iginx相关jar包的情况，看看本地在maven的settings.xml是否配置了镜像站，一般删除镜像站配置后即可正确编译**
 
 构建成功后，在 `target` 文件夹下找到 `zeppelin-iginx-VERSION-shaded.jar` 文件。
