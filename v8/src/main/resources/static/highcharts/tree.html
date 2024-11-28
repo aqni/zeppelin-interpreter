@@ -1,0 +1,134 @@
+<html lang="en">
+    <head>
+        <title></title>
+        <style>
+            * {
+                font-family: Helvetica, Arial, sans-serif;
+                /*font-size: 1.2rem*/
+            }
+
+            .highcharts-figure {
+                margin: 0 auto;
+                max-width: 95%;
+                min-width: 50%;
+            }
+
+            #container {
+                height: 100%;
+                width: 100%;
+            }
+
+            .highcharts-description {
+                margin: 0.3rem 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <figure class="highcharts-figure">
+            <div id="container"></div>
+        </figure>
+        <script>
+            function loadLibrary(src) {
+                return new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            }
+
+            async function init() {
+                try {
+                    // await loadLibrary('lib/highcharts.js');
+                    // await loadLibrary('lib/treemap.js');
+                    // await loadLibrary('lib/treegraph.js');
+                    // await loadLibrary('lib/exporting.js');
+                    // await loadLibrary('lib/accessibility.js');
+                    await loadLibrary('https://code.highcharts.com/highcharts.js');
+                    await loadLibrary('https://code.highcharts.com/modules/treemap.js');
+                    await loadLibrary('https://code.highcharts.com/modules/treegraph.js');
+                    // await loadLibrary('https://code.highcharts.com/modules/exporting.js');
+                    await loadLibrary('https://code.highcharts.com/modules/accessibility.js');
+                    console.log('MyLibrary 已加载');
+                    // 继续执行依赖于库的代码
+
+
+                    Highcharts.chart("container", {
+                        chart: {
+                            spacingBottom: 30,
+                            marginRight: 120,
+                            height: 1200
+                        },
+                        title: {
+                            text: "数据资产"
+                        },
+                        series: [
+                            {
+                                type: "treegraph",
+                                keys: ["parent", "id", "name","level"],
+                                clip: false,
+                                data: NODE_LIST,
+                                marker: {
+                                    symbol: "circle",
+                                    radius: 6,
+                                    fillColor: "#ffffff",
+                                    lineWidth: 3
+                                },
+                                dataLabels: {
+                                    align: "left",
+                                    pointFormat: "{point.name}",
+                                    style: {
+                                        color: "#000000",
+                                        textOutline: "3px #ffffff",
+                                        whiteSpace: "nowrap"
+                                    },
+                                    x: 24,
+                                    crop: false,
+                                    overflow: "none"
+                                },
+                                levels: [
+                                    {
+                                        level: 1,
+                                        levelIsConstant: false
+                                    },
+                                    {
+                                        level: 2,
+                                        colorByPoint: true
+                                    },
+                                    {
+                                        level: 3,
+                                        colorVariation: {
+                                            key: "brightness",
+                                            to: -0.5
+                                        }
+                                    },
+                                    {
+                                        level: 4,
+                                        colorVariation: {
+                                            key: "brightness",
+                                            to: 0.5
+                                        }
+                                    },
+                                    {
+                                        level: 6,
+                                        dataLabels: {
+                                            x: 10
+                                        },
+                                        marker: {
+                                            radius: 4
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    });
+                } catch (error) {
+                    console.error('加载失败:', error);
+                }
+            }
+
+            init();
+        </script>
+    </body>
+</html>

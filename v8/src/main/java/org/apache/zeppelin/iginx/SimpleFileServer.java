@@ -88,7 +88,6 @@ public class SimpleFileServer {
       String requestPath = exchange.getRequestURI().getPath();
       File file = new File(basePath + requestPath);
       if (file.exists() && !file.isDirectory()) {
-        // 设置响应头为文件下载
         if (requestPath.endsWith("html")) {
           exchange.getResponseHeaders().set("Content-Type", "text/html");
         } else {

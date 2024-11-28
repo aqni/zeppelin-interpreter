@@ -7,17 +7,12 @@
     <center>
         <h1></h1>
     </center>
-    <link
-            href=lib/bootstrap/bootstrap.min.css"
+    <link href="lib/bootstrap/bootstrap.min.css"
             rel="stylesheet"
-            integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
-            crossorigin="anonymous"
-    />
+            crossorigin="anonymous"/>
     <script
             src="lib/bootstrap/bootstrap.bundle.min.js"
-            integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
-            crossorigin="anonymous"
-    ></script>
+            crossorigin="anonymous"></script>
 
 
     <center>
@@ -65,8 +60,6 @@
 
         <script type="text/javascript">
 			// initialize global variables.
-			var edges;
-			var nodes;
 			var allNodes;
 			var allEdges;
 			var nodeColors;
@@ -81,14 +74,15 @@
 			};
 			//var allNodesStr = '{"root":{"path":"root","value":"根节点","children":[{"path":"root.lf","value":"lf","children":[{"path":"root.lf.home","value":"home","children":[{"path":"root.lf.home.chufang","value":"chufang","children":[{"path":"root.lf.home.chufang.a1","value":"a1","children":[]},{"path":"root.lf.home.chufang.b1","value":"b1","children":[]}]}]},{"path":"root.lf.gongsi","value":"gongsi","children":[{"path":"root.lf.gongsi.diannao","value":"diannao","children":[{"path":"root.lf.gongsi.diannao.a1","value":"a1","children":[]}]}]}]},{"path":"root.dana","value":"dana","children":[{"path":"root.dana.home","value":"home","children":[{"path":"root.dana.home.chufang","value":"chufang","children":[{"path":"root.dana.home.chufang.a1","value":"a1","children":[]}]}]},{"path":"root.dana.gonsi","value":"gonsi","children":[{"path":"root.dana.gonsi.diannao","value":"diannao","children":[{"path":"root.dana.gonsi.diannao.a1","value":"a1","children":[]}]}]}]},{"path":"root.kangle","value":"kangle","children":[{"path":"root.kangle.xuexiao","value":"xuexiao","children":[{"path":"root.kangle.xuexiao.jiaoshi","value":"jiaoshi","children":[{"path":"root.kangle.xuexiao.jiaoshi.c1","value":"c1","children":[]}]}]}]},{"path":"root.laoya","value":"laoya","children":[{"path":"root.laoya.d1","value":"d1","children":[]}]},{"path":"root.kuaile","value":"kuaile","children":[{"path":"root.kuaile.chufang","value":"chufang","children":[{"path":"root.kuaile.chufang.k1","value":"k1","children":[]}]}]}]}}';
 		    var allNodesStr = 'ALL_NODE_STR';
+            let treeEnabled = TREE_ENABLED;
 			var all = JSON.parse(allNodesStr)
 			// var all = ALL_NODE_STR;
 
 
 			// 创建 vis.js 数据集
 			const data = {
-				nodes: new vis.DataSet(nodes),
-				edges: new vis.DataSet(edges)
+				nodes: new vis.DataSet(),
+				edges: new vis.DataSet()
 			};
 
 			let tableColumns = {}; // 用于缓存表格的列信息
@@ -117,8 +111,9 @@
 			
 			// 将节点和子节点添加到图中
 			function addColumnNodes(node) {
-				var nodeId = node.id?node.id:node.path;
-				if(!data.nodes.get(nodeId)){
+				let nodeId = node.id?node.id:node.path;
+                // 显示tree or forest
+				if(treeEnabled && !data.nodes.get(nodeId)){
 				 data.nodes.add({
 							id: node.path,
 							label: node.value, // 显示列名和数据类型

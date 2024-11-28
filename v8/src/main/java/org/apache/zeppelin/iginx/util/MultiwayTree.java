@@ -1,10 +1,11 @@
 package org.apache.zeppelin.iginx.util;
 
+import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 
 public class MultiwayTree {
   public static final String ROOT_NODE_NAME = "数据资产";
-  public static final String ROOT_NODE_PATH = "root";
+  public static final String ROOT_NODE_PATH = "rootId";
 
   public TreeNode getRoot() {
     return root;
@@ -40,11 +41,21 @@ public class MultiwayTree {
     return null;
   }
 
-  public void traversePreorder(TreeNode node) {
+  /**
+   * 广度优先遍历树，转换为Highcharts节点数组
+   *
+   * @param node
+   * @param nodeList
+   * @param level 从0开始，0代表虚拟根节点
+   */
+  public void traverseToHighchartsTreeNodes(
+      TreeNode node, List<HighchartsTreeNode> nodeList, int level) {
     if (node != null) {
-      System.out.print(node.value + " ");
+      nodeList.add(
+          new HighchartsTreeNode(
+              node.path, node.value, StringUtils.substringBeforeLast(node.path, "."), level++));
       for (TreeNode child : node.children) {
-        traversePreorder(child);
+        traverseToHighchartsTreeNodes(child, nodeList, level);
       }
     }
   }

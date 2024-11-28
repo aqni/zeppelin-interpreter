@@ -32,10 +32,7 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
-import org.apache.zeppelin.iginx.util.FileUtil;
-import org.apache.zeppelin.iginx.util.HttpUtil;
-import org.apache.zeppelin.iginx.util.MultiwayTree;
-import org.apache.zeppelin.iginx.util.SqlCmdUtil;
+import org.apache.zeppelin.iginx.util.*;
 import org.apache.zeppelin.interpreter.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +56,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String IGINX_UPLOAD_DIR_MAX_SIZE = "iginx.zeppelin.upload.dir.max.size";
   private static final String IGINX_NOTE_FONT_SIZE_ENABLE = "iginx.zeppelin.note.font.size.enable";
   private static final String IGINX_NOTE_FONT_SIZE = "iginx.zeppelin.note.font.size";
+  private static final String IGINX_GRAPH_TREE_ENABLE = "iginx.graph.tree.enable";
 
   private static final String DEFAULT_HOST = "127.0.0.1";
   private static final String DEFAULT_PORT = "6888";
@@ -76,6 +74,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String DEFAULT_UPLOAD_DIR_MAX_SIZE = "200"; // GB
   private static final String DEFAULT_NOTE_FONT_SIZE_ENABLE = "false";
   private static final String DEFAULT_NOTE_FONT_SIZE = "9.0";
+  private static final String DEFAULT_IGINX_GRAPH_TREE_ENABLE = "true";
 
   private static final String TAB = "\t";
   private static final String NEWLINE = "\n";
@@ -101,6 +100,7 @@ public class IginxInterpreter8 extends Interpreter {
   private long uploadDirMaxSize = 0;
   private boolean noteFontSizeEnable = false;
   private double noteFontSize = 9.0;
+  private boolean graphTreeEnable = true;
 
   private Queue<String> downloadFileQueue = new LinkedList<>();
   private Queue<Double> downloadFileSizeQueue = new LinkedList<>();
@@ -165,7 +165,9 @@ public class IginxInterpreter8 extends Interpreter {
     noteFontSize =
         Double.parseDouble(
             properties.getProperty(IGINX_NOTE_FONT_SIZE, DEFAULT_NOTE_FONT_SIZE).trim());
-
+    graphTreeEnable =
+        Boolean.parseBoolean(
+            properties.getProperty(IGINX_GRAPH_TREE_ENABLE, DEFAULT_IGINX_GRAPH_TREE_ENABLE));
     localIpAddress = getLocalHostExactAddress();
     if (localIpAddress == null) {
       localIpAddress = "127.0.0.1";
@@ -298,7 +300,8 @@ public class IginxInterpreter8 extends Interpreter {
         if (SqlType.ShowColumns == sqlResult.getSqlType()) {
           interpreterResult.add(
               new InterpreterResultMessage(
-                  InterpreterResult.Type.HTML, buildNetworkForShowColumns(sqlResult)));
+                  InterpreterResult.Type.HTML,
+                  buildTreeForShowColumns(sqlResult))); // buildNetworkForShowColumns(sqlResult)
         }
         msg =
             buildSingleFormResult(
@@ -345,8 +348,9 @@ public class IginxInterpreter8 extends Interpreter {
             row -> {
               MultiwayTree.addTreeNodeFromString(tree, row.get(0));
             });
+    String htmlTemplate = "static/vis/network.html";
     try (InputStream inputStream =
-        IginxInterpreter8.class.getClassLoader().getResourceAsStream("static/vis/network.html")) {
+        IginxInterpreter8.class.getClassLoader().getResourceAsStream(htmlTemplate)) {
       BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
       StringBuilder content = new StringBuilder();
       String line;
@@ -355,7 +359,8 @@ public class IginxInterpreter8 extends Interpreter {
       }
       Gson gson = new Gson();
       String jsonString = gson.toJson(tree);
-      String html = content.toString().replace("ALL_NODE_STR", jsonString);
+      String html =
+          content.toString().replace("ALL_NODE_STR", jsonString).replace("TREE_ENABLED", "false");
       // 写入vis等库文件，只在新环境执行一次
       String targetPath = outfileDir + "/graphs/lib/";
       if (!FileUtil.isDirectoryLoaded(targetPath)) {
@@ -381,6 +386,60 @@ public class IginxInterpreter8 extends Interpreter {
           .toString()
           .replace("FILE_HOST", fileHttpHost)
           .replace("FILE_PORT", String.valueOf(fileHttpPort));
+    } catch (IOException e) {
+      LOGGER.warn("load show columns to tree error", e);
+    }
+    return "";
+  }
+
+  /**
+   * 为show columns 命令创建树状状图
+   *
+   * @param sqlResult
+   */
+  public String buildTreeForShowColumns(SessionExecuteSqlResult sqlResult) {
+    List<List<String>> queryList =
+        sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
+    MultiwayTree tree = MultiwayTree.getMultiwayTree();
+    queryList
+        .subList(1, queryList.size())
+        .forEach(
+            row -> {
+              MultiwayTree.addTreeNodeFromString(tree, row.get(0));
+            });
+    String htmlTemplate = "static/highcharts/tree.html";
+    try (InputStream inputStream =
+        IginxInterpreter8.class.getClassLoader().getResourceAsStream(htmlTemplate)) {
+      BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+      StringBuilder content = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        content.append(line).append("\n");
+      }
+      List<HighchartsTreeNode> nodeList = new ArrayList<>();
+      tree.traverseToHighchartsTreeNodes(tree.getRoot(), nodeList, 1);
+      if (!graphTreeEnable) {
+        nodeList.remove(0); // 删掉根节点，展现森林
+      }
+      Gson gson = new Gson();
+      String jsonString = gson.toJson(nodeList);
+      String html =
+          content.toString().replace("NODE_LIST", jsonString).replace("TREE_ENABLED", "false");
+      LOGGER.info("html={}", html);
+      // 写入Highcharts库文件，只在新环境执行一次
+      //      String targetPath = outfileDir + "/graphs/lib/";
+      //      if (!FileUtil.isDirectoryLoaded(targetPath)) {
+      //        String sourcePath = "static/highcharts/lib/";
+      //        String jarUrl =
+      //
+      // Objects.requireNonNull(IginxInterpreter8.class.getClassLoader().getResource(sourcePath))
+      //                        .toString();
+      //        String jarPath = jarUrl.substring(jarUrl.indexOf("file:") + 5,
+      // jarUrl.indexOf(".jar") + 4);
+      //        FileUtil.extractDirectoryFromJar(jarPath, sourcePath, targetPath);
+      //      }
+
+      return html;
     } catch (IOException e) {
       LOGGER.warn("load show columns to tree error", e);
     }
@@ -471,7 +530,7 @@ public class IginxInterpreter8 extends Interpreter {
                 + fileSizeGB
                 + "GB.");
       }
-
+      LOGGER.info("load data sql execute, sql={}", sql);
       List<String> columns = null;
       long recordsNum = 0;
       byte[] bytes = FileUtils.readFileToByteArray(file);
