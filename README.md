@@ -170,6 +170,8 @@ docker run -v ~/code/zeppelin-interpreter/:/opt/zeppelin/interpreter/iginx --pri
 12. **iginx.zeppelin.upload.file.max.size**：IGinX上传文件大小限制，单位GB。
 13. **iginx.zeppelin.note.font.size.enable**:是否激活Note范围内统一字体尺寸，默认不开启。
 14. **iginx.zeppelin.note.font.size**：Note范围内字体尺寸，默认16，可选值9-20。
+15. **iginx.file.http.host**：IGinX 中文件下载服务要占用的IP，默认为 127.0.0.1。
+16. **iginx.graph.tree.enable**: 如果设置成true，命令返回结果展现成树，否则展现成森林，默认true。
 ### 新建IGinX笔记本
 
 点击红框内的 Create new note

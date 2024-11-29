@@ -12,6 +12,7 @@ import cn.edu.tsinghua.iginx.thrift.LoadUDFResp;
 import cn.edu.tsinghua.iginx.thrift.SqlType;
 import cn.edu.tsinghua.iginx.utils.FormatUtils;
 import cn.edu.tsinghua.iginx.utils.Pair;
+import com.google.gson.Gson;
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -31,6 +32,7 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.apache.zeppelin.iginx.util.*;
 import org.apache.zeppelin.iginx.util.HttpUtil;
 import org.apache.zeppelin.iginx.util.SqlCmdUtil;
 import org.apache.zeppelin.interpreter.*;
@@ -50,11 +52,13 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String IGINX_OUTFILE_MAX_NUM = "iginx.outfile.max.num";
   private static final String IGINX_OUTFILE_MAX_SIZE = "iginx.outfile.max.size";
   private static final String IGINX_FILE_HTTP_PORT = "iginx.http.file.port";
+  private static final String IGINX_FILE_HTTP_HOST = "iginx.file.http.host";
   private static final String IGINX_ZEPPELIN_IP = "iginx.zeppelin.ip";
   private static final String IGINX_UPLOAD_FILE_MAX_SIZE = "iginx.zeppelin.upload.file.max.size";
   private static final String IGINX_UPLOAD_DIR_MAX_SIZE = "iginx.zeppelin.upload.dir.max.size";
   private static final String IGINX_NOTE_FONT_SIZE_ENABLE = "iginx.zeppelin.note.font.size.enable";
   private static final String IGINX_NOTE_FONT_SIZE = "iginx.zeppelin.note.font.size";
+  private static final String IGINX_GRAPH_TREE_ENABLE = "iginx.graph.tree.enable";
 
   private static final String DEFAULT_HOST = "127.0.0.1";
   private static final String DEFAULT_PORT = "6888";
@@ -66,11 +70,13 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String DEFAULT_OUTFILE_MAX_NUM = "100";
   private static final String DEFAULT_OUTFILE_MAX_SIZE = "10240";
   private static final String DEFAULT_FILE_HTTP_PORT = "18082";
+  private static final String DEFAULT_FILE_HTTP_HOST = "127.0.0.1";
   private static final String DEFAULT_UPLOAD_DIR = "uploads";
   private static final String DEFAULT_UPLOAD_FILE_MAX_SIZE = "10"; // GB
   private static final String DEFAULT_UPLOAD_DIR_MAX_SIZE = "200"; // GB
   private static final String DEFAULT_NOTE_FONT_SIZE_ENABLE = "false";
   private static final String DEFAULT_NOTE_FONT_SIZE = "9.0";
+  private static final String DEFAULT_IGINX_GRAPH_TREE_ENABLE = "true";
 
   private static final String TAB = "\t";
   private static final String NEWLINE = "\n";
@@ -90,11 +96,13 @@ public class IginxInterpreter8 extends Interpreter {
   private int outfileMaxNum = 0;
   private int outfileMaxSize = 0;
   private int fileHttpPort = 0;
+  private String fileHttpHost = "";
   private String localIpAddress = "";
   private long uploadFileMaxSize = 0;
   private long uploadDirMaxSize = 0;
   private boolean noteFontSizeEnable = false;
   private double noteFontSize = 9.0;
+  private boolean graphTreeEnable = true;
 
   private Queue<String> downloadFileQueue = new LinkedList<>();
   private Queue<Double> downloadFileSizeQueue = new LinkedList<>();
@@ -144,6 +152,7 @@ public class IginxInterpreter8 extends Interpreter {
     fileHttpPort =
         Integer.parseInt(
             properties.getProperty(IGINX_FILE_HTTP_PORT, DEFAULT_FILE_HTTP_PORT).trim());
+    fileHttpHost = properties.getProperty(IGINX_FILE_HTTP_HOST, DEFAULT_FILE_HTTP_HOST).trim();
     uploadFileMaxSize =
         Long.parseLong(
             properties
@@ -158,7 +167,9 @@ public class IginxInterpreter8 extends Interpreter {
     noteFontSize =
         Double.parseDouble(
             properties.getProperty(IGINX_NOTE_FONT_SIZE, DEFAULT_NOTE_FONT_SIZE).trim());
-
+    graphTreeEnable =
+        Boolean.parseBoolean(
+            properties.getProperty(IGINX_GRAPH_TREE_ENABLE, DEFAULT_IGINX_GRAPH_TREE_ENABLE));
     localIpAddress = getLocalHostExactAddress();
     if (localIpAddress == null) {
       localIpAddress = "127.0.0.1";
@@ -285,23 +296,24 @@ public class IginxInterpreter8 extends Interpreter {
         return new InterpreterResult(InterpreterResult.Code.ERROR, sqlResult.getParseErrorMsg());
       }
 
-      InterpreterResult interpreterResult;
+      InterpreterResult interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
       String msg;
-
       if (singleFormSqlType.contains(sqlResult.getSqlType()) && !sql.startsWith("explain")) {
+        if (SqlType.ShowColumns == sqlResult.getSqlType()) {
+          interpreterResult.add(
+              new InterpreterResultMessage(
+                  InterpreterResult.Type.HTML, buildTreeForShowColumns(sqlResult)));
+        }
         msg =
             buildSingleFormResult(
                 sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
-        interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
         interpreterResult.add(InterpreterResult.Type.TABLE, msg);
       } else if (sqlResult.getSqlType() == SqlType.Query && sql.startsWith("explain")) {
         msg =
             buildExplainResult(
                 sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
-        interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
         interpreterResult.add(InterpreterResult.Type.TABLE, msg);
       } else if (sqlResult.getSqlType() == SqlType.ShowClusterInfo) {
-        interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
         buildClusterInfoResult(
             interpreterResult,
             sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
@@ -319,6 +331,63 @@ public class IginxInterpreter8 extends Interpreter {
           InterpreterResult.Code.ERROR,
           "encounter error when executing sql statement:\n" + e.getMessage());
     }
+  }
+
+  /**
+   * 为show columns 命令创建树状状图
+   *
+   * @param sqlResult
+   */
+  public String buildTreeForShowColumns(SessionExecuteSqlResult sqlResult) {
+    List<List<String>> queryList =
+        sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
+    MultiwayTree tree = MultiwayTree.getMultiwayTree();
+    queryList
+        .subList(1, queryList.size())
+        .forEach(
+            row -> {
+              MultiwayTree.addTreeNodeFromString(tree, row.get(0));
+            });
+    String htmlTemplate = "static/highcharts/tree.html";
+    try (InputStream inputStream =
+        IginxInterpreter8.class.getClassLoader().getResourceAsStream(htmlTemplate)) {
+      BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+      StringBuilder content = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        content.append(line).append("\n");
+      }
+      List<HighchartsTreeNode> nodeList = new ArrayList<>();
+      int depth = tree.traverseToHighchartsTreeNodes(tree.getRoot(), nodeList);
+      if (!graphTreeEnable) {
+        nodeList.remove(0); // 删掉根节点，展现森林
+      }
+      Gson gson = new Gson();
+      String jsonString = gson.toJson(nodeList);
+      String html =
+          content
+              .toString()
+              .replace("NODE_LIST", jsonString)
+              .replace("TREE_DEPTH", String.valueOf(depth));
+      // LOGGER.info("depth={},html={}", depth, html);
+      // 写入Highcharts库文件，只在新环境执行一次
+      //      String targetPath = outfileDir + "/graphs/lib/";
+      //      if (!FileUtil.isDirectoryLoaded(targetPath)) {
+      //        String sourcePath = "static/highcharts/lib/";
+      //        String jarUrl =
+      //
+      // Objects.requireNonNull(IginxInterpreter8.class.getClassLoader().getResource(sourcePath))
+      //                        .toString();
+      //        String jarPath = jarUrl.substring(jarUrl.indexOf("file:") + 5,
+      // jarUrl.indexOf(".jar") + 4);
+      //        FileUtil.extractDirectoryFromJar(jarPath, sourcePath, targetPath);
+      //      }
+
+      return html;
+    } catch (IOException e) {
+      LOGGER.warn("load show columns to tree error", e);
+    }
+    return "";
   }
 
   private static boolean isLoadDataFromCsv(String sql) {

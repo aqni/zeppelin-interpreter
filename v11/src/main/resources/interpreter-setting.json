@@ -73,6 +73,48 @@
         "defaultValue": "18082",
         "description": "The port of File HTTP server, Default = '18082'",
         "type": "number"
+      },
+      "iginx.zeppelin.upload.file.max.size": {
+        "envName": null,
+        "propertyName": "iginx.zeppelin.upload.file.max.size",
+        "defaultValue": "10",
+        "description": "The Max Size of upload file, Default = 10GB",
+        "type": "number"
+      },
+      "iginx.zeppelin.upload.dir.max.size": {
+        "envName": null,
+        "propertyName": "iginx.zeppelin.upload.dir.max.size",
+        "defaultValue": "200",
+        "description": "The Max Size of upload directory, Default = 200GB",
+        "type": "number"
+      },
+      "iginx.zeppelin.note.font.size.enable": {
+        "envName": null,
+        "propertyName": "iginx.zeppelin.note.font.size.enable",
+        "defaultValue": false,
+        "description": "If enable the same font size in the note scope, Default = false",
+        "type": "checkbox"
+      },
+      "iginx.zeppelin.note.font.size": {
+        "envName": null,
+        "propertyName": "iginx.zeppelin.note.font.size",
+        "defaultValue": "16",
+        "description": "Font size in not scope, Default = 9",
+        "type": "number"
+      },
+      "iginx.file.http.host": {
+        "envName": null,
+        "propertyName": "iginx.http.host",
+        "defaultValue": "",
+        "description": "The host of File HTTP server, Default = ''",
+        "type": "string"
+      },
+      "iginx.graph.tree.enable": {
+        "envName": null,
+        "propertyName": "iginx.graph.tree.enable",
+        "defaultValue": true,
+        "description": "If true, the result of show columns will be displayed as a tree; otherwise, it will be displayed as forest, Default = true",
+        "type": "checkbox"
       }
     },
     "editor": {
