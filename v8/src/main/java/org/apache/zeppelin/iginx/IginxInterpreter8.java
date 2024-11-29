@@ -530,7 +530,7 @@ public class IginxInterpreter8 extends Interpreter {
                 + fileSizeGB
                 + "GB.");
       }
-      LOGGER.info("load data sql execute, sql={}", sql);
+
       List<String> columns = null;
       long recordsNum = 0;
       byte[] bytes = FileUtils.readFileToByteArray(file);
