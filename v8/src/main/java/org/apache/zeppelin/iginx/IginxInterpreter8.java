@@ -417,15 +417,18 @@ public class IginxInterpreter8 extends Interpreter {
         content.append(line).append("\n");
       }
       List<HighchartsTreeNode> nodeList = new ArrayList<>();
-      tree.traverseToHighchartsTreeNodes(tree.getRoot(), nodeList, 1);
+      int depth = tree.traverseToHighchartsTreeNodes(tree.getRoot(), nodeList);
       if (!graphTreeEnable) {
         nodeList.remove(0); // 删掉根节点，展现森林
       }
       Gson gson = new Gson();
       String jsonString = gson.toJson(nodeList);
       String html =
-          content.toString().replace("NODE_LIST", jsonString).replace("TREE_ENABLED", "false");
-      LOGGER.info("html={}", html);
+          content
+              .toString()
+              .replace("NODE_LIST", jsonString)
+              .replace("TREE_DEPTH", String.valueOf(depth));
+      // LOGGER.info("depth={},html={}", depth, html);
       // 写入Highcharts库文件，只在新环境执行一次
       //      String targetPath = outfileDir + "/graphs/lib/";
       //      if (!FileUtil.isDirectoryLoaded(targetPath)) {

@@ -4,13 +4,24 @@
         <style>
             .highcharts-figure {
                 margin: 0 auto;
-                max-width: 95%;
-                min-width: 50%;
+                max-width: 100vw;
+                min-width: 60vw;
+                height: 100vh;
             }
-
-            #container {
-                height: 100%;
-                width: 100%;
+            .large-tree{
+                height: 95vh;
+                width: 95vw;
+                margin: 0 calc((100vw - 100vw) / 2);
+            }
+            .middle-tree{
+                height: 75vh;
+                width: 75vw;
+                margin: 0 calc((100vw - 80vw) / 2);
+            }
+            .small-tree{
+                height: 55vh;
+                width: 55vw;
+                margin: 0 calc((100vw - 60vw) / 2);
             }
         </style>
     </head>
@@ -43,16 +54,23 @@
                     await loadLibrary('https://code.highcharts.com/modules/accessibility.js');
                     console.log('MyLibrary 已加载');
                     // 继续执行依赖于库的代码
-
-
+                    let nodeList = NODE_LIST;
+                    let depth = TREE_DEPTH;
+                    let element = document.getElementById('container');
+                    if(depth<5){
+                        element.classList.toggle("small-tree");
+                    }else if(depth<10){
+                        element.classList.toggle("middle-tree");
+                    }else{
+                        element.classList.toggle("large-tree");
+                    }
                     Highcharts.chart("container", {
                         chart: {
                             spacingBottom: 30,
                             marginRight: 120,
-                            height: 1200,
                             style: {
                                 fontFamily: "Helvetica, Arial, sans-serif",
-                                fontSize: '2rem' // 调整为期望的字体大小
+                                fontSize: '2rem'
                             }
                         },
                         credits: {
@@ -66,7 +84,7 @@
                                 type: "treegraph",
                                 keys: ["parent", "id", "name","level"],
                                 clip: false,
-                                data: NODE_LIST,
+                                data: nodeList,
                                 marker: {
                                     symbol: "circle",
                                     radius: 6,
@@ -125,7 +143,6 @@
                     console.error('加载失败:', error);
                 }
             }
-
             init();
         </script>
     </body>

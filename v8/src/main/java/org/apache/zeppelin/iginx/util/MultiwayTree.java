@@ -1,6 +1,8 @@
 package org.apache.zeppelin.iginx.util;
 
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import org.apache.commons.lang3.StringUtils;
 
 public class MultiwayTree {
@@ -44,20 +46,32 @@ public class MultiwayTree {
   /**
    * 广度优先遍历树，转换为Highcharts节点数组
    *
-   * @param node
+   * @param root
    * @param nodeList
-   * @param level 从0开始，0代表虚拟根节点
    */
-  public void traverseToHighchartsTreeNodes(
-      TreeNode node, List<HighchartsTreeNode> nodeList, int level) {
-    if (node != null) {
-      nodeList.add(
-          new HighchartsTreeNode(
-              node.path, node.value, StringUtils.substringBeforeLast(node.path, "."), level++));
-      for (TreeNode child : node.children) {
-        traverseToHighchartsTreeNodes(child, nodeList, level);
-      }
+  public int traverseToHighchartsTreeNodes(TreeNode root, List<HighchartsTreeNode> nodeList) {
+    if (root == null) {
+      return 0;
     }
+
+    Queue<TreeNode> queue = new LinkedList<>();
+    queue.offer(root);
+    int depth = 0;
+
+    while (!queue.isEmpty()) {
+      int levelSize = queue.size(); // 当前层的节点数
+      for (int i = 0; i < levelSize; i++) {
+        TreeNode node = queue.poll();
+        nodeList.add(
+            new HighchartsTreeNode(
+                node.path, node.value, StringUtils.substringBeforeLast(node.path, "."), depth));
+        for (TreeNode child : node.children) {
+          queue.offer(child);
+        }
+      }
+      depth++;
+    }
+    return depth;
   }
 
   public static MultiwayTree getMultiwayTree() {
