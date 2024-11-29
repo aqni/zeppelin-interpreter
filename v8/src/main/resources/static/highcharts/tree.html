@@ -2,11 +2,6 @@
     <head>
         <title></title>
         <style>
-            * {
-                font-family: Helvetica, Arial, sans-serif;
-                /*font-size: 1.2rem*/
-            }
-
             .highcharts-figure {
                 margin: 0 auto;
                 max-width: 95%;
@@ -16,10 +11,6 @@
             #container {
                 height: 100%;
                 width: 100%;
-            }
-
-            .highcharts-description {
-                margin: 0.3rem 10px;
             }
         </style>
     </head>
@@ -58,7 +49,14 @@
                         chart: {
                             spacingBottom: 30,
                             marginRight: 120,
-                            height: 1200
+                            height: 1200,
+                            style: {
+                                fontFamily: "Helvetica, Arial, sans-serif",
+                                fontSize: '2rem' // 调整为期望的字体大小
+                            }
+                        },
+                        credits: {
+                            enabled: false
                         },
                         title: {
                             text: "数据资产"
