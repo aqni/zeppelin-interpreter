@@ -105,8 +105,8 @@
       "iginx.file.http.host": {
         "envName": null,
         "propertyName": "iginx.http.host",
-        "defaultValue": "",
-        "description": "The host of File HTTP server, Default = ''",
+        "defaultValue": "127.0.0.1",
+        "description": "The host of File HTTP server, Default = 127.0.0.1",
         "type": "string"
       },
       "iginx.graph.tree.enable": {
