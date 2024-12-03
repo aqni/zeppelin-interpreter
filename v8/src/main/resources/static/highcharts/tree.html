@@ -110,25 +110,29 @@
                                 levels: [
                                     {
                                         level: 1,
-                                        levelIsConstant: false
+                                        levelIsConstant: false,
+                                        collapsed: true
                                     },
                                     {
                                         level: 2,
-                                        colorByPoint: true
+                                        colorByPoint: true,
+                                        collapsed: true
                                     },
                                     {
                                         level: 3,
                                         colorVariation: {
                                             key: "brightness",
                                             to: -0.5
-                                        }
+                                        },
+                                        collapsed: true
                                     },
                                     {
                                         level: 4,
                                         colorVariation: {
                                             key: "brightness",
                                             to: 0.5
-                                        }
+                                        },
+                                        collapsed: true
                                     },
                                     {
                                         level: 6,
@@ -137,9 +141,10 @@
                                         },
                                         marker: {
                                             radius: 4
-                                        }
+                                        },
+                                        collapsed: true
                                     }
-                                ]
+                                ],
                             }
                         ]
                     });
