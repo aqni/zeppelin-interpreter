@@ -473,7 +473,7 @@ public class IginxInterpreter8 extends Interpreter {
       StringBuffer stringBuffer = new StringBuffer(sql);
       sql = stringBuffer.replace(start + 7, end - 1, "\"" + path + "\"").toString();
 
-      if (sql.contains("\\")) { // 保持
+      if (sql.contains("\\")) {
         sql = sql.replace("\\\\", "\\");
       }
       LOGGER.info("load data sql execute, sql={}", sql);
