@@ -6,7 +6,7 @@ import java.util.Queue;
 import org.apache.commons.lang3.StringUtils;
 
 public class MultiwayTree {
-  public static final String ROOT_NODE_NAME = "数据资产";
+  public static final String ROOT_NODE_NAME = "";
   public static final String ROOT_NODE_PATH = "rootId";
 
   public TreeNode getRoot() {

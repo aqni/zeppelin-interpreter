@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Title</title>
+    <style>
+        .div-full-screen iframe {
+            width: 100%;
+            min-height: 40em;
+            border: 0;
+        }
+    </style>
+</head>
+<body onload="pageOnload()">
+<div class="div-full-screen">
+    <iframe
+            id="treeFrame"
+            title="tree"
+            src="PARAGRAPH_TREE_URL"
+            onload="handleLoad()"></iframe>
+</div>
+<script>
+    function pageOnload() {
+        let outPutOpenElement = document.querySelector('[id=\"PARAGRAPH_ID_control\"] .ng-scope .icon-book-open');
+        outPutOpenElement.click();
+    }
+
+    function handleLoad() {
+        try {
+            console.log('treeFrame加载完成。');
+            let playElement = document.querySelector('[id=\"PARAGRAPH_ID_control\"] .ng-scope .icon-control-play');
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'PARAGRAPH_TREE_URL');
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    console.log('Status:', xhr.status);
+                    if(xhr.status !== 200){
+                        playElement.click();
+                    }
+                }
+            };
+            xhr.send();
+        }catch (e) {
+            console.log("加载失败");
+        }
+    }
+</script>
+</body>
+</html>

@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.zeppelin.iginx.util.*;
 import org.apache.zeppelin.iginx.util.HttpUtil;
@@ -302,7 +301,8 @@ public class IginxInterpreter8 extends Interpreter {
         if (SqlType.ShowColumns == sqlResult.getSqlType()) {
           interpreterResult.add(
               new InterpreterResultMessage(
-                  InterpreterResult.Type.HTML, buildTreeForShowColumns(sqlResult)));
+                  InterpreterResult.Type.HTML,
+                  buildTreeForShowColumns(sqlResult, context.getParagraphId())));
         }
         msg =
             buildSingleFormResult(
@@ -338,7 +338,7 @@ public class IginxInterpreter8 extends Interpreter {
    *
    * @param sqlResult
    */
-  public String buildTreeForShowColumns(SessionExecuteSqlResult sqlResult) {
+  public String buildTreeForShowColumns(SessionExecuteSqlResult sqlResult, String paragraphId) {
     List<List<String>> queryList =
         sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
     MultiwayTree tree = MultiwayTree.getMultiwayTree();
@@ -359,30 +359,41 @@ public class IginxInterpreter8 extends Interpreter {
       }
       List<HighchartsTreeNode> nodeList = new ArrayList<>();
       int depth = tree.traverseToHighchartsTreeNodes(tree.getRoot(), nodeList);
-      if (!graphTreeEnable) {
-        nodeList.remove(0); // 删掉根节点，展现森林
-      }
       Gson gson = new Gson();
       String jsonString = gson.toJson(nodeList);
       String html =
           content
               .toString()
               .replace("NODE_LIST", jsonString)
-              .replace("TREE_DEPTH", String.valueOf(depth));
-      // LOGGER.info("depth={},html={}", depth, html);
-      // 写入Highcharts库文件，只在新环境执行一次
-      //      String targetPath = outfileDir + "/graphs/lib/";
-      //      if (!FileUtil.isDirectoryLoaded(targetPath)) {
-      //        String sourcePath = "static/highcharts/lib/";
-      //        String jarUrl =
-      //
-      // Objects.requireNonNull(IginxInterpreter8.class.getClassLoader().getResource(sourcePath))
-      //                        .toString();
-      //        String jarPath = jarUrl.substring(jarUrl.indexOf("file:") + 5,
-      // jarUrl.indexOf(".jar") + 4);
-      //        FileUtil.extractDirectoryFromJar(jarPath, sourcePath, targetPath);
-      //      }
+              .replace("TREE_DEPTH", String.valueOf(depth))
+              .replace("TREE_ENABLE", String.valueOf(graphTreeEnable));
+      String fileName = paragraphId + "_tree.html";
+      // 写入文件服务器paragraphID_tree.html
+      String targetPath = outfileDir + "/graphs/tree/" + fileName;
+      FileUtil.writeToFile(html, targetPath);
 
+      // 返回框架页面
+      InputStream mainInputStream =
+          IginxInterpreter8.class
+              .getClassLoader()
+              .getResourceAsStream("static/highcharts/main.html");
+      reader = new BufferedReader(new InputStreamReader(mainInputStream));
+      content.setLength(0);
+      while ((line = reader.readLine()) != null) {
+        content.append(line).append("\n");
+      }
+      html =
+          content
+              .toString()
+              .replace("PARAGRAPH_ID", paragraphId)
+              .replace(
+                  "PARAGRAPH_TREE_URL",
+                  String.format(
+                      "http://%s:%d/graphs/tree/%s", fileHttpHost, fileHttpPort, fileName));
+      LOGGER.info("depth={},html={}", depth, html);
+
+      inputStream.close();
+      mainInputStream.close();
       return html;
     } catch (IOException e) {
       LOGGER.warn("load show columns to tree error", e);
@@ -455,14 +466,17 @@ public class IginxInterpreter8 extends Interpreter {
       if (!file.isFile()) {
         throw new InvalidParameterException(path + " is not a file!");
       }
-      String[] paths = sql.split(" ");
-      for (int i = 0; i < paths.length; i++) {
-        if ("INFILE".equalsIgnoreCase(paths[i])) {
-          paths[i + 1] = "\"" + path + "\"";
-          break;
-        }
+
+      String lowerCaseStr = sql.toLowerCase();
+      int start = lowerCaseStr.indexOf("INFILE".toLowerCase());
+      int end = lowerCaseStr.indexOf("AS CSV".toLowerCase());
+      StringBuffer stringBuffer = new StringBuffer(sql);
+      sql = stringBuffer.replace(start + 7, end - 1, "\"" + path + "\"").toString();
+
+      if (sql.contains("\\")) { // 保持
+        sql = sql.replace("\\\\", "\\");
       }
-      sql = StringUtils.join(paths, " ");
+      LOGGER.info("load data sql execute, sql={}", sql);
       double fileSizeGB =
           new BigDecimal(file.length() / 1024 / 1024 / 1024)
               .setScale(2, RoundingMode.HALF_UP)
@@ -1081,9 +1095,7 @@ public class IginxInterpreter8 extends Interpreter {
                         InterpreterResult.Type.HTML,
                         String.format("<h%d>%s</h%d>", hTagNumber, item.getData(), hTagNumber));
                   } else if (item.getType().equals(InterpreterResult.Type.HTML)) {
-                    return new InterpreterResultMessage(
-                        item.getType(),
-                        String.format("<h%d>%s</h%d>", hTagNumber, item.getData(), hTagNumber));
+                    return new InterpreterResultMessage(item.getType(), item.getData());
                   } else {
                     LOGGER.warn("unexpected result type {}", item.getType());
                   }
