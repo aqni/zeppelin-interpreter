@@ -364,6 +364,7 @@ public class IginxInterpreter8 extends Interpreter {
       String html =
           content
               .toString()
+              .replace("PARAGRAPH_ID", paragraphId)
               .replace("NODE_LIST", jsonString)
               .replace("TREE_DEPTH", String.valueOf(depth))
               .replace("TREE_ENABLE", String.valueOf(graphTreeEnable));

@@ -9,7 +9,7 @@
                 max-width: 100vw;
                 min-width: 60vw;
             }
-            #container {
+            #PARAGRAPH_ID_single_container {
                 height: 35rem;
             }
             .large-tree{
@@ -24,11 +24,30 @@
                 width: 55vw;
                 margin: 0 calc((100vw - 60vw) / 2);
             }
+            .toggle-button {
+                padding: 0 5px;
+                border: none;
+                background-color: transparent;
+                color: inherit;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            .toggle-button::before {
+                content: ">> ";
+                color: #333;
+            }
+            .toggle-button:hover {
+                color: #2e70a8;
+            }
+            .toggle-button:hover::before {
+                color: #2e70a8;
+            }
         </style>
     </head>
     <body>
+        <button id="PARAGRAPH_ID_toggleButton" class="toggle-button">显示数据资产</button>
         <figure class="highcharts-figure">
-            <div id="container"></div>
+            <div id="PARAGRAPH_ID_single_container" style="display: none"></div>
         </figure>
         <script>
             function loadLibrary(src) {
@@ -57,7 +76,7 @@
                     // 继续执行依赖于库的代码
                     let nodeList = NODE_LIST;
                     let depth = TREE_DEPTH;
-                    let element = document.getElementById('container');
+                    let element = document.getElementById('PARAGRAPH_ID_single_container');
                     if(depth<5){
                         element.classList.toggle("small-tree");
                     }else if(depth<10){
@@ -65,7 +84,7 @@
                     }else{
                         element.classList.toggle("large-tree");
                     }
-                    cc = Highcharts.chart("container", {
+                    cc = Highcharts.chart("PARAGRAPH_ID_single_container", {
                         chart: {
                             spacingBottom: 30,
                             marginRight: 200,
@@ -213,7 +232,7 @@
                 console.log('层高最多的层是：', maxLevel);
                 console.log('最多展开的节点数：', maxNodes);
                 var totalHeight = 35;
-                var container = document.getElementById('container');
+                var container = document.getElementById('PARAGRAPH_ID_single_container');
                 // 重新绘制图表以适应新的高度
                 container.style.height = (totalHeight + maxNodes) + 'rem';
                 // 使用 chart.update 方法更新图表配置，保持动画效果
@@ -263,7 +282,19 @@
                 // }, 500);  // 延迟调用，确保图表已经渲染完成
             }
 
-
+            document.getElementById('PARAGRAPH_ID_toggleButton').addEventListener('click', function() {
+                var container = document.getElementById('PARAGRAPH_ID_single_container');
+                if (container.style.display === 'none' || container.classList.contains('hidden')) {
+                    // 显示图表
+                    container.style.display = 'block';
+                    cc.redraw(); // 重新绘制图表，确保它正确显示
+                    this.innerText="隐藏数据资产"
+                } else {
+                    // 隐藏图表
+                    container.style.display = 'none';
+                    this.innerText="显示数据资产"
+                }
+            });
         </script>
     </body>
 </html>
