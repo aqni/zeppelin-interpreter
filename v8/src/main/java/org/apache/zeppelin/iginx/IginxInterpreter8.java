@@ -371,29 +371,6 @@ public class IginxInterpreter8 extends Interpreter {
       // 写入文件服务器paragraphID_tree.html
       String targetPath = outfileDir + "/graphs/tree/" + fileName;
       FileUtil.writeToFile(html, targetPath);
-
-      // 返回框架页面
-      InputStream mainInputStream =
-          IginxInterpreter8.class
-              .getClassLoader()
-              .getResourceAsStream("static/highcharts/main.html");
-      reader = new BufferedReader(new InputStreamReader(mainInputStream));
-      content.setLength(0);
-      while ((line = reader.readLine()) != null) {
-        content.append(line).append("\n");
-      }
-      html =
-          content
-              .toString()
-              .replace("PARAGRAPH_ID", paragraphId)
-              .replace(
-                  "PARAGRAPH_TREE_URL",
-                  String.format(
-                      "http://%s:%d/graphs/tree/%s", fileHttpHost, fileHttpPort, fileName));
-      LOGGER.info("depth={},html={}", depth, html);
-
-      inputStream.close();
-      mainInputStream.close();
       return html;
     } catch (IOException e) {
       LOGGER.warn("load show columns to tree error", e);
