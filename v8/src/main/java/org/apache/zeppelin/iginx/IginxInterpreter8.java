@@ -129,6 +129,11 @@ public class IginxInterpreter8 extends Interpreter {
           SqlType.GetReplicaNum,
           SqlType.ShowRegisterTask);
 
+  // 定义html模板中的占位符
+  private static final String PARAGRAPH_ID = "PARAGRAPH_ID";
+  private static final String TABLE_NUMBER = "TABLE_NUMBER";
+  private static final String SCRIPTS = "SCRIPTS";
+
   public IginxInterpreter8(Properties properties) {
     super(properties);
   }
@@ -262,6 +267,7 @@ public class IginxInterpreter8 extends Interpreter {
               }
             }
           }
+          addHideResult(interpreterResult, context);
           future.complete(interpreterResult);
         });
 
@@ -371,7 +377,7 @@ public class IginxInterpreter8 extends Interpreter {
       String fileName = paragraphId + "_tree.html";
       // 写入文件服务器paragraphID_tree.html
       String targetPath = outfileDir + "/graphs/tree/" + fileName;
-      FileUtil.writeToFile(html, targetPath);
+      FileUtil.writeFile(html, targetPath);
       return html;
     } catch (IOException e) {
       LOGGER.warn("load show columns to tree error", e);
@@ -1007,6 +1013,40 @@ public class IginxInterpreter8 extends Interpreter {
     }
     return loadDataSqlNum > 1;
   }
+
+  /**
+   * 结果集中增加隐藏脚本，用来完成Iginx解释器的定制设置项
+   *
+   * @param interpreterResult
+   * @param context
+   */
+  public void addHideResult(InterpreterResult interpreterResult, InterpreterContext context) {
+    if (interpreterResult == null) return;
+
+    List<InterpreterResultMessage> message = interpreterResult.message();
+    StringBuilder scripts = new StringBuilder();
+    for (int i = 0; i < message.size(); i++) {
+      if (message.get(i).getType().equals(InterpreterResult.Type.TABLE)) {
+        scripts.append(
+            FileUtil.renderingHtml(
+                "static/highcharts/hideTableBtns.js",
+                PARAGRAPH_ID,
+                context.getParagraphId(),
+                TABLE_NUMBER,
+                String.valueOf(i)));
+      }
+    }
+
+    String html =
+        FileUtil.renderingHtml(
+            "static/highcharts/result.html",
+            PARAGRAPH_ID,
+            context.getParagraphId(),
+            SCRIPTS,
+            scripts.toString());
+    interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.HTML, html));
+  }
+
   /**
    * 根据配置调整字体大小 如果配激活了note全局字体大小，使用配的字体大小 如果没有激活，取paragraph设置的字体大小
    *
