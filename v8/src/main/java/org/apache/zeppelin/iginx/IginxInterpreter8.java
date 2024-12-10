@@ -133,6 +133,8 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String PARAGRAPH_ID = "PARAGRAPH_ID";
   private static final String TABLE_NUMBER = "TABLE_NUMBER";
   private static final String SCRIPTS = "SCRIPTS";
+  // 定义特殊操作符，按照show columns图形化命令结果
+  private static final String GRAPHICAL_RESULTS = ">graph.tree";
 
   public IginxInterpreter8(Properties properties) {
     super(properties);
@@ -275,6 +277,11 @@ public class IginxInterpreter8 extends Interpreter {
   }
 
   private InterpreterResult processSql(String sql, InterpreterContext context) {
+    boolean graphEnable = false;
+    if (sql.startsWith(GRAPHICAL_RESULTS)) {
+      sql = sql.substring(GRAPHICAL_RESULTS.length()).trim();
+      graphEnable = true;
+    }
     try {
       // 如果sql中有outfile关键字，则进行特殊处理，将结果下载到zeppelin所在的服务器上，并在表单中返回下载链接
       String outfileRegex =
@@ -304,7 +311,7 @@ public class IginxInterpreter8 extends Interpreter {
       InterpreterResult interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
       String msg;
       if (singleFormSqlType.contains(sqlResult.getSqlType()) && !sql.startsWith("explain")) {
-        if (SqlType.ShowColumns == sqlResult.getSqlType()) {
+        if (SqlType.ShowColumns == sqlResult.getSqlType() || graphEnable) {
           interpreterResult.add(
               new InterpreterResultMessage(
                   InterpreterResult.Type.HTML,
