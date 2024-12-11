@@ -12,7 +12,7 @@ import cn.edu.tsinghua.iginx.thrift.LoadUDFResp;
 import cn.edu.tsinghua.iginx.thrift.SqlType;
 import cn.edu.tsinghua.iginx.utils.FormatUtils;
 import cn.edu.tsinghua.iginx.utils.Pair;
-import com.google.gson.Gson;
+import com.alibaba.fastjson2.JSON;
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -372,8 +372,8 @@ public class IginxInterpreter8 extends Interpreter {
       }
       List<HighchartsTreeNode> nodeList = new ArrayList<>();
       int depth = tree.traverseToHighchartsTreeNodes(tree.getRoot(), nodeList);
-      Gson gson = new Gson();
-      String jsonString = gson.toJson(nodeList);
+
+      String jsonString = JSON.toJSONString(nodeList);
       String html =
           content
               .toString()
