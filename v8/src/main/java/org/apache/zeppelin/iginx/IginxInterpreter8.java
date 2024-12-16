@@ -83,6 +83,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String SEMICOLON = ";";
   private static final String SUCCESS = "Success!";
   private static final String NO_DATA_TO_PRINT = "No data to print.\n";
+  private static final String CMD_STARTER = ">"; // 命令级参数的首个字符 >graph.tree
 
   private String host = "";
   private int port = 0;
@@ -137,6 +138,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String STYLES = "STYLES";
   // 定义特殊操作符，按照show columns图形化命令结果
   private static final String GRAPHICAL_RESULTS = ">graph.tree";
+  private static final String PRINT_KEY_TIME = ">print.key.time";
 
   public IginxInterpreter8(Properties properties) {
     super(properties);
@@ -278,12 +280,8 @@ public class IginxInterpreter8 extends Interpreter {
     return future;
   }
 
-  private InterpreterResult processSql(String sql, InterpreterContext context) {
-    boolean graphEnable = false;
-    if (sql.startsWith(GRAPHICAL_RESULTS)) {
-      sql = sql.substring(GRAPHICAL_RESULTS.length()).trim();
-      graphEnable = true;
-    }
+  private InterpreterResult processSql(String cmd, InterpreterContext context) {
+    String sql = setCmdConfig(cmd, context);
     try {
       // 如果sql中有outfile关键字，则进行特殊处理，将结果下载到zeppelin所在的服务器上，并在表单中返回下载链接
       String outfileRegex =
@@ -312,34 +310,39 @@ public class IginxInterpreter8 extends Interpreter {
 
       InterpreterResult interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS);
       String msg;
+      boolean keyTimeEnable = Boolean.parseBoolean(getCmdConfig(sql, context, PRINT_KEY_TIME));
       if (singleFormSqlType.contains(sqlResult.getSqlType()) && !sql.startsWith("explain")) {
-        if (SqlType.ShowColumns == sqlResult.getSqlType() || graphEnable) {
+        List<List<String>> queryList =
+            sqlResult.getResultInList(
+                keyTimeEnable, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
+        if (SqlType.ShowColumns == sqlResult.getSqlType()
+            || Boolean.parseBoolean(getCmdConfig(sql, context, GRAPHICAL_RESULTS))) {
           interpreterResult.add(
               new InterpreterResultMessage(
                   InterpreterResult.Type.HTML,
-                  buildTreeForShowColumns(sqlResult, context.getParagraphId())));
+                  buildTreeForShowColumns(queryList, context.getParagraphId())));
         }
-        msg =
-            buildSingleFormResult(
-                sqlResult.getResultInList(false, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
+        msg = buildSingleFormResult(queryList);
         interpreterResult.add(InterpreterResult.Type.TABLE, msg);
       } else if (sqlResult.getSqlType() == SqlType.Query && sql.startsWith("explain")) {
         msg =
             buildExplainResult(
-                sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
+                sqlResult.getResultInList(
+                    keyTimeEnable, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
         interpreterResult.add(InterpreterResult.Type.TABLE, msg);
       } else if (sqlResult.getSqlType() == SqlType.ShowClusterInfo) {
         buildClusterInfoResult(
             interpreterResult,
-            sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
+            sqlResult.getResultInList(
+                keyTimeEnable, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
       } else {
-        msg = sqlResult.getResultInString(true, timePrecision);
+        msg = sqlResult.getResultInString(keyTimeEnable, timePrecision);
         if (msg.equals(NO_DATA_TO_PRINT)) {
           msg = SUCCESS;
         }
         interpreterResult = new InterpreterResult(InterpreterResult.Code.SUCCESS, msg);
       }
-
+      clearCmdConfig(context);
       return interpreterResult;
     } catch (Exception e) {
       return new InterpreterResult(
@@ -351,11 +354,9 @@ public class IginxInterpreter8 extends Interpreter {
   /**
    * 为show columns 命令创建树状状图
    *
-   * @param sqlResult
+   * @param queryList
    */
-  public String buildTreeForShowColumns(SessionExecuteSqlResult sqlResult, String paragraphId) {
-    List<List<String>> queryList =
-        sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
+  public String buildTreeForShowColumns(List<List<String>> queryList, String paragraphId) {
     MultiwayTree tree = MultiwayTree.getMultiwayTree();
     queryList
         .subList(1, queryList.size())
@@ -1079,5 +1080,42 @@ public class IginxInterpreter8 extends Interpreter {
             STYLES,
             styles.toString());
     interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.HTML, html));
+  }
+
+  /**
+   * 为每条命令缓存自定义参数
+   *
+   * @param cmd
+   * @param context
+   */
+  private String setCmdConfig(String cmd, InterpreterContext context) {
+    String sql = cmd;
+    String[] parts = cmd.split(WHITESPACE);
+    for (String part : parts) {
+      if (!part.startsWith(CMD_STARTER)) {
+        break;
+      }
+      // 是否展示树状图
+      if (part.equalsIgnoreCase(GRAPHICAL_RESULTS)) {
+        context.getConfig().put(GRAPHICAL_RESULTS, "true");
+        sql = sql.substring(GRAPHICAL_RESULTS.length() + 1);
+      }
+      // key按时间戳输出，默认按长整型输出
+      if (part.equalsIgnoreCase(PRINT_KEY_TIME)) {
+        context.getConfig().put(PRINT_KEY_TIME, "true");
+        sql = sql.substring(PRINT_KEY_TIME.length() + 1);
+      }
+    }
+
+    return sql;
+  }
+
+  private String getCmdConfig(String cmd, InterpreterContext context, String propertyName) {
+    return (String) context.getConfig().get(propertyName);
+  }
+
+  private void clearCmdConfig(InterpreterContext context) {
+    context.getConfig().remove(GRAPHICAL_RESULTS);
+    context.getConfig().remove(PRINT_KEY_TIME);
   }
 }
