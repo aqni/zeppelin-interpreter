@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FileUtils;
@@ -130,9 +129,12 @@ public class IginxInterpreter8 extends Interpreter {
           SqlType.ShowRegisterTask);
 
   // 定义html模板中的占位符
+  private static final String OUTPUT_TYPE = "OUTPUT_TYPE";
   private static final String PARAGRAPH_ID = "PARAGRAPH_ID";
   private static final String TABLE_NUMBER = "TABLE_NUMBER";
+  private static final String FONT_SIZE = "FONT_SIZE";
   private static final String SCRIPTS = "SCRIPTS";
+  private static final String STYLES = "STYLES";
   // 定义特殊操作符，按照show columns图形化命令结果
   private static final String GRAPHICAL_RESULTS = ">graph.tree";
 
@@ -236,7 +238,7 @@ public class IginxInterpreter8 extends Interpreter {
     } catch (Exception e) {
       interpreterResult = new InterpreterResult(InterpreterResult.Code.ERROR, e.getMessage());
     }
-    return tuneFontSize(interpreterResult, context);
+    return interpreterResult;
   }
 
   /**
@@ -319,7 +321,7 @@ public class IginxInterpreter8 extends Interpreter {
         }
         msg =
             buildSingleFormResult(
-                sqlResult.getResultInList(true, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
+                sqlResult.getResultInList(false, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision));
         interpreterResult.add(InterpreterResult.Type.TABLE, msg);
       } else if (sqlResult.getSqlType() == SqlType.Query && sql.startsWith("explain")) {
         msg =
@@ -1030,102 +1032,52 @@ public class IginxInterpreter8 extends Interpreter {
   public void addHideResult(InterpreterResult interpreterResult, InterpreterContext context) {
     if (interpreterResult == null) return;
 
-    List<InterpreterResultMessage> message = interpreterResult.message();
-    StringBuilder scripts = new StringBuilder();
-    for (int i = 0; i < message.size(); i++) {
-      if (message.get(i).getType().equals(InterpreterResult.Type.TABLE)) {
-        scripts.append(
-            FileUtil.renderingHtml(
-                "static/highcharts/hideTableBtns.js",
-                PARAGRAPH_ID,
-                context.getParagraphId(),
-                TABLE_NUMBER,
-                String.valueOf(i)));
-      }
+    Double fontSize = (Double) context.getConfig().getOrDefault("fontSize", "9.0");
+    if (noteFontSizeEnable) {
+      fontSize = noteFontSize;
     }
 
+    List<InterpreterResultMessage> message = interpreterResult.message();
+    StringBuilder scripts = new StringBuilder(); // 注入自动运行脚本
+    StringBuilder styles = new StringBuilder(); //  注入样式表
+    for (int i = 0; i < message.size(); i++) {
+      if (message.get(i).getType().equals(InterpreterResult.Type.TABLE)) {
+        // table字体
+        scripts.append(
+            FileUtil.renderingHtml(
+                "static/highcharts/fontSize.js",
+                OUTPUT_TYPE,
+                InterpreterResult.Type.TABLE.name(),
+                PARAGRAPH_ID,
+                context.getParagraphId(),
+                FONT_SIZE,
+                fontSize + "pt"));
+        // 非table图表字体
+        styles.append(
+            FileUtil.renderingHtml("static/highcharts/fontSize.css", FONT_SIZE, fontSize + "pt"));
+      } else if (message.get(i).getType().equals(InterpreterResult.Type.TEXT)) {
+        scripts.append(
+            FileUtil.renderingHtml(
+                "static/highcharts/fontSize.js",
+                OUTPUT_TYPE,
+                InterpreterResult.Type.TEXT.name(),
+                PARAGRAPH_ID,
+                context.getParagraphId(),
+                FONT_SIZE,
+                fontSize + "pt"));
+      } else {
+        LOGGER.debug("Not supported {} settings.", InterpreterResult.Type.TEXT);
+      }
+    }
     String html =
         FileUtil.renderingHtml(
             "static/highcharts/result.html",
             PARAGRAPH_ID,
             context.getParagraphId(),
             SCRIPTS,
-            scripts.toString());
+            scripts.toString(),
+            STYLES,
+            styles.toString());
     interpreterResult.add(new InterpreterResultMessage(InterpreterResult.Type.HTML, html));
-  }
-
-  /**
-   * 根据配置调整字体大小 如果配激活了note全局字体大小，使用配的字体大小 如果没有激活，取paragraph设置的字体大小
-   *
-   * @param interpreterResult
-   * @param context
-   * @return InterpreterResult
-   */
-  public InterpreterResult tuneFontSize(
-      InterpreterResult interpreterResult, InterpreterContext context) {
-    int hTagNumber;
-    Double fontSize = (Double) context.getConfig().getOrDefault("fontSize", "9.0");
-    if (noteFontSizeEnable) {
-      fontSize = noteFontSize;
-    }
-    if (fontSize <= 10) {
-      hTagNumber = 6;
-    } else if (fontSize <= 12) {
-      hTagNumber = 5;
-    } else if (fontSize <= 14) {
-      hTagNumber = 4;
-    } else if (fontSize <= 16) {
-      hTagNumber = 3;
-    } else if (fontSize <= 18) {
-      hTagNumber = 2;
-    } else if (fontSize <= 20) {
-      hTagNumber = 1;
-    } else {
-      hTagNumber = 6;
-    }
-    LOGGER.info(
-        "NoteId={},ParagraphId={},fontSizeEnable={},fontSize={}",
-        context.getNoteId(),
-        context.getParagraphId(),
-        fontSize,
-        hTagNumber);
-    List<InterpreterResultMessage> message = interpreterResult.message();
-    return new InterpreterResult(
-        interpreterResult.code(),
-        message.stream()
-            .map(
-                item -> {
-                  LOGGER.debug("type={},data={}", item.getType(), item.getData());
-                  if (item.getType().equals(InterpreterResult.Type.TABLE)) {
-                    String collect =
-                        Arrays.stream(item.getData().split(NEWLINE))
-                                .limit(1)
-                                .collect(Collectors.joining(NEWLINE))
-                            + NEWLINE
-                            + Arrays.stream(item.getData().split(NEWLINE))
-                                .skip(1)
-                                .map(
-                                    line ->
-                                        Arrays.stream(line.split(TAB))
-                                            .map(
-                                                val ->
-                                                    String.format(
-                                                        "%%html<h%d>%s</h%d>",
-                                                        hTagNumber, val, hTagNumber))
-                                            .collect(Collectors.joining(TAB)))
-                                .collect(Collectors.joining(NEWLINE));
-                    return new InterpreterResultMessage(item.getType(), collect);
-                  } else if (item.getType().equals(InterpreterResult.Type.TEXT)) {
-                    return new InterpreterResultMessage(
-                        InterpreterResult.Type.HTML,
-                        String.format("<h%d>%s</h%d>", hTagNumber, item.getData(), hTagNumber));
-                  } else if (item.getType().equals(InterpreterResult.Type.HTML)) {
-                    return new InterpreterResultMessage(item.getType(), item.getData());
-                  } else {
-                    LOGGER.warn("unexpected result type {}", item.getType());
-                  }
-                  return new InterpreterResultMessage(item.getType(), item.getData());
-                })
-            .collect(Collectors.toList()));
   }
 }
