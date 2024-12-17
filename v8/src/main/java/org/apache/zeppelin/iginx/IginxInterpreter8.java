@@ -83,7 +83,6 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String SEMICOLON = ";";
   private static final String SUCCESS = "Success!";
   private static final String NO_DATA_TO_PRINT = "No data to print.\n";
-  private static final String CMD_STARTER = ">"; // 命令级参数的首个字符 >graph.tree
 
   private String host = "";
   private int port = 0;
@@ -137,6 +136,7 @@ public class IginxInterpreter8 extends Interpreter {
   private static final String SCRIPTS = "SCRIPTS";
   private static final String STYLES = "STYLES";
   // 定义特殊操作符，按照show columns图形化命令结果
+  private static final String CMD_STARTER = ">"; // 命令级参数的首个字符 >graph.tree
   private static final String GRAPHICAL_RESULTS = ">graph.tree";
   private static final String PRINT_KEY_TIME = ">print.key.time";
 
