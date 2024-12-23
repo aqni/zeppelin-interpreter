@@ -24,8 +24,6 @@
                                 });
                         }
                 });
-                // 右上角控制按钮位置与命令区域右对齐
-                document.querySelector('[id=\"PARAGRAPH_ID_control\"]').style.setProperty('margin-top', '0.6em');
         }, 10);
 
         function matchesIdPattern(id,part) {
