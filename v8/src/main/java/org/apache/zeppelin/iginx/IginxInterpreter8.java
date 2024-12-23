@@ -1053,10 +1053,6 @@ public class IginxInterpreter8 extends Interpreter {
                 context.getParagraphId(),
                 FONT_SIZE,
                 String.valueOf(fontSize)));
-        // 非table图表字体
-        styles.append(
-            FileUtil.renderingHtml(
-                "static/highcharts/fontSize.css", FONT_SIZE, String.valueOf(fontSize)));
       } else if (message.get(i).getType().equals(InterpreterResult.Type.TEXT)) {
         scripts.append(
             FileUtil.renderingHtml(

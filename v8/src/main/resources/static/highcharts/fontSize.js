@@ -19,7 +19,8 @@
                         if(matchesIdPattern(child.id,'switch')){
                                 var viewBtns =  document.getElementById(child.id).querySelectorAll("button");
                                 Array.from(viewBtns).forEach(function (btn) {
-                                        btn.addEventListener('click', function(){setTimeout(refreshView,50);});
+                                        btn.addEventListener('click', function(){setTimeout(refreshView,100);});
+                                        setTimeout(refreshView,100);
                                 });
                         }
                 });
