@@ -138,6 +138,7 @@ public class IginxInterpreter8 extends Interpreter {
   // 定义特殊操作符，按照show columns图形化命令结果
   private static final String CMD_STARTER = ">"; // 命令级参数的首个字符 >graph.tree
   private static final String GRAPHICAL_RESULTS = ">graph.tree";
+  private static final String GRAPH_NETWORK = ">graph.network";
   private static final String PRINT_KEY_TIME = ">print.key.time";
 
   public IginxInterpreter8(Properties properties) {
@@ -224,7 +225,7 @@ public class IginxInterpreter8 extends Interpreter {
     if (exception != null) {
       return new InterpreterResult(InterpreterResult.Code.ERROR, exception.getMessage());
     }
-
+    logger.info("getCMD: {}", st);
     String[] cmdList = parseMultiLinesSQL(st);
 
     if (hasMultiLoadData(cmdList)) {
@@ -315,7 +316,12 @@ public class IginxInterpreter8 extends Interpreter {
         List<List<String>> queryList =
             sqlResult.getResultInList(
                 keyTimeEnable, FormatUtils.DEFAULT_TIME_FORMAT, timePrecision);
-        if (SqlType.ShowColumns == sqlResult.getSqlType()
+        if (Boolean.parseBoolean(getCmdConfig(sql, context, GRAPH_NETWORK))) {
+          interpreterResult.add(
+              new InterpreterResultMessage(
+                  InterpreterResult.Type.HTML,
+                  buildNetworkForShowColumns(queryList, context.getParagraphId())));
+        } else if (SqlType.ShowColumns == sqlResult.getSqlType()
             || Boolean.parseBoolean(getCmdConfig(sql, context, GRAPHICAL_RESULTS))) {
           interpreterResult.add(
               new InterpreterResultMessage(
@@ -387,6 +393,40 @@ public class IginxInterpreter8 extends Interpreter {
       String fileName = paragraphId + "_tree.html";
       // 写入文件服务器paragraphID_tree.html
       String targetPath = outfileDir + "/graphs/tree/" + fileName;
+      FileUtil.writeFile(html, targetPath);
+      return html;
+    } catch (IOException e) {
+      LOGGER.warn("load show columns to tree error", e);
+    }
+    return "";
+  }
+
+  public String buildNetworkForShowColumns(List<List<String>> queryList, String paragraphId) {
+    MultiwayTree tree = MultiwayTree.getMultiwayTree();
+    queryList
+        .subList(1, queryList.size())
+        .forEach(
+            row -> {
+              MultiwayTree.addTreeNodeFromString(tree, row.get(0));
+            });
+    String htmlTemplate = "static/vis/network.html";
+    try (InputStream inputStream =
+        IginxInterpreter8.class.getClassLoader().getResourceAsStream(htmlTemplate)) {
+      BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+      StringBuilder content = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        content.append(line).append("\n");
+      }
+      List<HighchartsTreeNode> nodeList = new ArrayList<>();
+      int depth = tree.traverseToHighchartsTreeNodes(tree.getRoot(), nodeList);
+
+      String jsonString = JSON.toJSONString(nodeList);
+      String html =
+          content.toString().replace("PARAGRAPH_ID", paragraphId).replace("NODE_LIST", jsonString);
+      String fileName = paragraphId + "_network.html";
+      // 写入文件服务器paragraphID_network.html
+      String targetPath = outfileDir + "/graphs/network/" + fileName;
       FileUtil.writeFile(html, targetPath);
       return html;
     } catch (IOException e) {
@@ -1100,6 +1140,11 @@ public class IginxInterpreter8 extends Interpreter {
         context.getConfig().put(GRAPHICAL_RESULTS, "true");
         sql = sql.substring(GRAPHICAL_RESULTS.length() + 1);
       }
+      // 是否展示网状图
+      if (part.equalsIgnoreCase(GRAPH_NETWORK)) {
+        context.getConfig().put(GRAPH_NETWORK, "true");
+        sql = sql.substring(GRAPH_NETWORK.length() + 1);
+      }
       // key按时间戳输出，默认按长整型输出
       if (part.equalsIgnoreCase(PRINT_KEY_TIME)) {
         context.getConfig().put(PRINT_KEY_TIME, "true");
@@ -1116,6 +1161,7 @@ public class IginxInterpreter8 extends Interpreter {
 
   private void clearCmdConfig(InterpreterContext context) {
     context.getConfig().remove(GRAPHICAL_RESULTS);
+    context.getConfig().remove(GRAPH_NETWORK);
     context.getConfig().remove(PRINT_KEY_TIME);
   }
 }

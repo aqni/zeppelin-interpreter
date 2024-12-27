@@ -1,0 +1,432 @@
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>网状图示例</title>
+    <style>
+        #iframe-container {
+            min-height: 400px;
+            max-height: 600px;
+        }
+        #PARAGRAPH_ID_single_container {
+            width: 100%;
+            height: 500px;
+            background-color: #ffffff;
+            position: relative;
+            float: left;
+        }
+        .card-body {
+            position: relative;
+        }
+        .card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background-color: #fff;
+            border-radius: .25rem;
+            min-height: 400px;
+            max-height: 600px;
+        }
+        .toggle-button {
+            padding: 0 5px;
+            border: none;
+            background-color: transparent;
+            color: inherit;
+            cursor: pointer;
+            font-size: 14px;
+            display: block;
+            margin: 10px;
+        }
+        .toggle-button::before {
+            content: ">> ";
+            color: #333;
+        }
+        .toggle-button:hover {
+            color: #2e70a8;
+        }
+        .toggle-button:hover::before {
+            color: #2e70a8;
+        }
+    </style>
+</head>
+
+<body>
+<button id="PARAGRAPH_ID_toggleButton" class="toggle-button">显示数据资产</button>
+<div id="iframe-container" style="display: none">
+    <div class="card" style="width: 100%">
+        <div id="PARAGRAPH_ID_single_container" class="card-body"></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    function loadLibrary(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    function loadCSS(href) {
+        return new Promise((resolve, reject) => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            link.onload = resolve;
+            link.onerror = reject;
+            document.head.appendChild(link);
+        });
+    }
+
+    async function init() {
+        try {
+            // 加载资源
+            await loadLibrary('https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js');
+            await loadCSS('https://unpkg.com/vis-network@9.1.9/styles/vis-network.min.css');
+            await loadLibrary('https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js');
+            await loadCSS('https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css');
+            await loadLibrary('https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js');
+
+            const RELATION_THRESHOLD = 0.7;
+            const RELATION_DEPTH_LEVEL = 3;
+            const allNodesStr = 'NODE_LIST';
+            const allNodes = JSON.parse(allNodesStr);
+            // const allNodes = [{"depth":0,"id":"rootId","name":"","parent":"undefined"},{"depth":1,"id":"rootId.多维度数据分析","name":"多维度数据分析","parent":"rootId"},{"depth":1,"id":"rootId.国家海洋信息中心","name":"国家海洋信息中心","parent":"rootId"},{"depth":1,"id":"rootId.海洋综合研究","name":"海洋综合研究","parent":"rootId"},{"depth":1,"id":"rootId.全球海洋遥感数据","name":"全球海洋遥感数据","parent":"rootId"},{"depth":1,"id":"rootId.科技资源调查与研发计划专项","name":"科技资源调查与研发计划专项","parent":"rootId"},{"depth":2,"id":"rootId.多维度数据分析.再分析数据","name":"再分析数据","parent":"rootId.多维度数据分析"},{"depth":2,"id":"rootId.多维度数据分析.实况分析数据","name":"实况分析数据","parent":"rootId.多维度数据分析"},{"depth":2,"id":"rootId.多维度数据分析.矢量地图数据","name":"矢量地图数据","parent":"rootId.多维度数据分析"},{"depth":2,"id":"rootId.多维度数据分析.统计分析数据","name":"统计分析数据","parent":"rootId.多维度数据分析"},{"depth":2,"id":"rootId.国家海洋信息中心.东海信息中心","name":"东海信息中心","parent":"rootId.国家海洋信息中心"},{"depth":2,"id":"rootId.国家海洋信息中心.北海信息中心","name":"北海信息中心","parent":"rootId.国家海洋信息中心"},{"depth":2,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心","name":"国家卫星海洋应用中心","parent":"rootId.国家海洋信息中心"},{"depth":2,"id":"rootId.国家海洋信息中心.国家深海基地管理中心","name":"国家深海基地管理中心","parent":"rootId.国家海洋信息中心"},{"depth":2,"id":"rootId.海洋综合研究.海底地形","name":"海底地形","parent":"rootId.海洋综合研究"},{"depth":2,"id":"rootId.海洋综合研究.海洋地球物理","name":"海洋地球物理","parent":"rootId.海洋综合研究"},{"depth":2,"id":"rootId.海洋综合研究.海洋底质","name":"海洋底质","parent":"rootId.海洋综合研究"},{"depth":2,"id":"rootId.海洋综合研究.海洋气象","name":"海洋气象","parent":"rootId.海洋综合研究"},{"depth":2,"id":"rootId.海洋综合研究.海洋水文","name":"海洋水文","parent":"rootId.海洋综合研究"},{"depth":2,"id":"rootId.海洋综合研究.海洋生物","name":"海洋生物","parent":"rootId.海洋综合研究"},{"depth":2,"id":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据","name":"中国近海环境遥感产品数据","parent":"rootId.全球海洋遥感数据"},{"depth":2,"id":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据","name":"北冰洋卫星遥感产品数据","parent":"rootId.全球海洋遥感数据"},{"depth":2,"id":"rootId.全球海洋遥感数据.影像遥感","name":"影像遥感","parent":"rootId.全球海洋遥感数据"},{"depth":2,"id":"rootId.全球海洋遥感数据.风电遥感产品数据","name":"风电遥感产品数据","parent":"rootId.全球海洋遥感数据"},{"depth":2,"id":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项","name":"科技基础资源调查专项","parent":"rootId.科技资源调查与研发计划专项"},{"depth":2,"id":"rootId.科技资源调查与研发计划专项.重点研发计划","name":"重点研发计划","parent":"rootId.科技资源调查与研发计划专项"},{"depth":3,"id":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集","name":"东南印度洋ROMS模拟数据集","parent":"rootId.多维度数据分析.再分析数据"},{"depth":3,"id":"rootId.多维度数据分析.再分析数据.全球海洋层结格点数据集","name":"全球海洋层结格点数据集","parent":"rootId.多维度数据分析.再分析数据"},{"depth":3,"id":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集","name":"全球海洋格点数据集","parent":"rootId.多维度数据分析.再分析数据"},{"depth":3,"id":"rootId.多维度数据分析.实况分析数据.地转流","name":"地转流","parent":"rootId.多维度数据分析.实况分析数据"},{"depth":3,"id":"rootId.多维度数据分析.实况分析数据.声速","name":"声速","parent":"rootId.多维度数据分析.实况分析数据"},{"depth":3,"id":"rootId.多维度数据分析.实况分析数据.密度","name":"密度","parent":"rootId.多维度数据分析.实况分析数据"},{"depth":3,"id":"rootId.多维度数据分析.实况分析数据.温度","name":"温度","parent":"rootId.多维度数据分析.实况分析数据"},{"depth":3,"id":"rootId.多维度数据分析.实况分析数据.盐度","name":"盐度","parent":"rootId.多维度数据分析.实况分析数据"},{"depth":3,"id":"rootId.多维度数据分析.矢量地图数据.公路","name":"公路","parent":"rootId.多维度数据分析.矢量地图数据"},{"depth":3,"id":"rootId.多维度数据分析.矢量地图数据.居民地","name":"居民地","parent":"rootId.多维度数据分析.矢量地图数据"},{"depth":3,"id":"rootId.多维度数据分析.矢量地图数据.水系","name":"水系","parent":"rootId.多维度数据分析.矢量地图数据"},{"depth":3,"id":"rootId.多维度数据分析.矢量地图数据.铁路","name":"铁路","parent":"rootId.多维度数据分析.矢量地图数据"},{"depth":3,"id":"rootId.多维度数据分析.统计分析数据.海洋气象统计分析数据","name":"海洋气象统计分析数据","parent":"rootId.多维度数据分析.统计分析数据"},{"depth":3,"id":"rootId.多维度数据分析.统计分析数据.海洋温度统计数据","name":"海洋温度统计数据","parent":"rootId.多维度数据分析.统计分析数据"},{"depth":3,"id":"rootId.多维度数据分析.统计分析数据.海洋盐度统计数据","name":"海洋盐度统计数据","parent":"rootId.多维度数据分析.统计分析数据"},{"depth":3,"id":"rootId.国家海洋信息中心.东海信息中心.灾情数据","name":"灾情数据","parent":"rootId.国家海洋信息中心.东海信息中心"},{"depth":3,"id":"rootId.国家海洋信息中心.东海信息中心.矢量数据","name":"矢量数据","parent":"rootId.国家海洋信息中心.东海信息中心"},{"depth":3,"id":"rootId.国家海洋信息中心.东海信息中心.遥感数据","name":"遥感数据","parent":"rootId.国家海洋信息中心.东海信息中心"},{"depth":3,"id":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_志愿船","name":"北海海洋观测资料_志愿船","parent":"rootId.国家海洋信息中心.北海信息中心"},{"depth":3,"id":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_浮标","name":"北海海洋观测资料_浮标","parent":"rootId.国家海洋信息中心.北海信息中心"},{"depth":3,"id":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料","name":"海洋站水准联测资料","parent":"rootId.国家海洋信息中心.北海信息中心"},{"depth":3,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品","name":"海洋遥感极地海冰应用监测产品","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心"},{"depth":3,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感海冰应用监测产品","name":"海洋遥感海冰应用监测产品","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心"},{"depth":3,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感绿潮应用监测产品","name":"海洋遥感绿潮应用监测产品","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心"},{"depth":3,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据","name":"地面气象观测数据","parent":"rootId.国家海洋信息中心.国家深海基地管理中心"},{"depth":3,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.鳌山站潮汐数据","name":"鳌山站潮汐数据","parent":"rootId.国家海洋信息中心.国家深海基地管理中心"},{"depth":3,"id":"rootId.海洋综合研究.海底地形.2020全球海底地形数据","name":"2020全球海底地形数据","parent":"rootId.海洋综合研究.海底地形"},{"depth":3,"id":"rootId.海洋综合研究.海洋地球物理.海洋磁力数据","name":"海洋磁力数据","parent":"rootId.海洋综合研究.海洋地球物理"},{"depth":3,"id":"rootId.海洋综合研究.海洋地球物理.海洋重力数据","name":"海洋重力数据","parent":"rootId.海洋综合研究.海洋地球物理"},{"depth":3,"id":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集","name":"马里亚纳海沟浅剖数据集","parent":"rootId.海洋综合研究.海洋地球物理"},{"depth":3,"id":"rootId.海洋综合研究.海洋底质.多金属结核主量元素数据","name":"多金属结核主量元素数据","parent":"rootId.海洋综合研究.海洋底质"},{"depth":3,"id":"rootId.海洋综合研究.海洋底质.沉积物粒度数据","name":"沉积物粒度数据","parent":"rootId.海洋综合研究.海洋底质"},{"depth":3,"id":"rootId.海洋综合研究.海洋底质.碳十四测年数据","name":"碳十四测年数据","parent":"rootId.海洋综合研究.海洋底质"},{"depth":3,"id":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集","name":"国际海洋大气综合数据集","parent":"rootId.海洋综合研究.海洋气象"},{"depth":3,"id":"rootId.海洋综合研究.海洋气象.海面气象综合数据集","name":"海面气象综合数据集","parent":"rootId.海洋综合研究.海洋气象"},{"depth":3,"id":"rootId.海洋综合研究.海洋气象.渔船观测数据集","name":"渔船观测数据集","parent":"rootId.海洋综合研究.海洋气象"},{"depth":3,"id":"rootId.海洋综合研究.海洋水文.中国台站观测数据","name":"中国台站观测数据","parent":"rootId.海洋综合研究.海洋水文"},{"depth":3,"id":"rootId.海洋综合研究.海洋水文.中国月平均水位延时数据","name":"中国月平均水位延时数据","parent":"rootId.海洋综合研究.海洋水文"},{"depth":3,"id":"rootId.海洋综合研究.海洋水文.波浪和风场数据","name":"波浪和风场数据","parent":"rootId.海洋综合研究.海洋水文"},{"depth":3,"id":"rootId.海洋综合研究.海洋水文.海表面压强","name":"海表面压强","parent":"rootId.海洋综合研究.海洋水文"},{"depth":3,"id":"rootId.海洋综合研究.海洋生物.日本东部时序站海洋生物数据集","name":"日本东部时序站海洋生物数据集","parent":"rootId.海洋综合研究.海洋生物"},{"depth":3,"id":"rootId.海洋综合研究.海洋生物.澳大利亚海洋观测综合系统海洋生物数据集","name":"澳大利亚海洋观测综合系统海洋生物数据集","parent":"rootId.海洋综合研究.海洋生物"},{"depth":3,"id":"rootId.海洋综合研究.海洋生物.美国国家近岸海洋科学中心海洋生物数据集","name":"美国国家近岸海洋科学中心海洋生物数据集","parent":"rootId.海洋综合研究.海洋生物"},{"depth":3,"id":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据.气溶胶光学厚度","name":"气溶胶光学厚度","parent":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据.水体漫反射","name":"水体漫反射","parent":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据.海水透明度","name":"海水透明度","parent":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据.海表温度","name":"海表温度","parent":"rootId.全球海洋遥感数据.中国近海环境遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据.海冰密集度","name":"海冰密集度","parent":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据.海水透明度","name":"海水透明度","parent":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据.海面温度","name":"海面温度","parent":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据.海面风场","name":"海面风场","parent":"rootId.全球海洋遥感数据.北冰洋卫星遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.影像遥感.中国近海HY1C-CZI影像数据","name":"中国近海HY1C-CZI影像数据","parent":"rootId.全球海洋遥感数据.影像遥感"},{"depth":3,"id":"rootId.全球海洋遥感数据.影像遥感.中国近海海域MODIS原始影像数据","name":"中国近海海域MODIS原始影像数据","parent":"rootId.全球海洋遥感数据.影像遥感"},{"depth":3,"id":"rootId.全球海洋遥感数据.风电遥感产品数据.位置","name":"位置","parent":"rootId.全球海洋遥感数据.风电遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.风电遥感产品数据.发电量","name":"发电量","parent":"rootId.全球海洋遥感数据.风电遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.风电遥感产品数据.涡轮机型号","name":"涡轮机型号","parent":"rootId.全球海洋遥感数据.风电遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.风电遥感产品数据.涡轮机数量","name":"涡轮机数量","parent":"rootId.全球海洋遥感数据.风电遥感产品数据"},{"depth":3,"id":"rootId.全球海洋遥感数据.风电遥感产品数据.风速","name":"风速","parent":"rootId.全球海洋遥感数据.风电遥感产品数据"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项.第一承建单位","name":"第一承建单位","parent":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项.项目名称","name":"项目名称","parent":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项.项目来源","name":"项目来源","parent":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项.项目编号","name":"项目编号","parent":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项.项目验收证明","name":"项目验收证明","parent":"rootId.科技资源调查与研发计划专项.科技基础资源调查专项"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.重点研发计划.第一承建单位","name":"第一承建单位","parent":"rootId.科技资源调查与研发计划专项.重点研发计划"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.重点研发计划.项目名称","name":"项目名称","parent":"rootId.科技资源调查与研发计划专项.重点研发计划"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.重点研发计划.项目来源","name":"项目来源","parent":"rootId.科技资源调查与研发计划专项.重点研发计划"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.重点研发计划.项目编号","name":"项目编号","parent":"rootId.科技资源调查与研发计划专项.重点研发计划"},{"depth":3,"id":"rootId.科技资源调查与研发计划专项.重点研发计划.项目验收证明","name":"项目验收证明","parent":"rootId.科技资源调查与研发计划专项.重点研发计划"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集.海平面高度","name":"海平面高度","parent":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集.海流","name":"海流","parent":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集.温度","name":"温度","parent":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集.盐度","name":"盐度","parent":"rootId.多维度数据分析.再分析数据.东南印度洋ROMS模拟数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.全球海洋层结格点数据集.密度","name":"密度","parent":"rootId.多维度数据分析.再分析数据.全球海洋层结格点数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.全球海洋层结格点数据集.浮力频率","name":"浮力频率","parent":"rootId.多维度数据分析.再分析数据.全球海洋层结格点数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集.海气通量","name":"海气通量","parent":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集.海流","name":"海流","parent":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集.温度","name":"温度","parent":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集.热含量","name":"热含量","parent":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集"},{"depth":4,"id":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集.盐度","name":"盐度","parent":"rootId.多维度数据分析.再分析数据.全球海洋格点数据集"},{"depth":4,"id":"rootId.多维度数据分析.统计分析数据.海洋气象统计分析数据.变化趋势","name":"变化趋势","parent":"rootId.多维度数据分析.统计分析数据.海洋气象统计分析数据"},{"depth":4,"id":"rootId.多维度数据分析.统计分析数据.海洋气象统计分析数据.平均值","name":"平均值","parent":"rootId.多维度数据分析.统计分析数据.海洋气象统计分析数据"},{"depth":4,"id":"rootId.多维度数据分析.统计分析数据.海洋温度统计数据.变化趋势","name":"变化趋势","parent":"rootId.多维度数据分析.统计分析数据.海洋温度统计数据"},{"depth":4,"id":"rootId.多维度数据分析.统计分析数据.海洋温度统计数据.平均值","name":"平均值","parent":"rootId.多维度数据分析.统计分析数据.海洋温度统计数据"},{"depth":4,"id":"rootId.多维度数据分析.统计分析数据.海洋盐度统计数据.变化趋势","name":"变化趋势","parent":"rootId.多维度数据分析.统计分析数据.海洋盐度统计数据"},{"depth":4,"id":"rootId.多维度数据分析.统计分析数据.海洋盐度统计数据.平均值","name":"平均值","parent":"rootId.多维度数据分析.统计分析数据.海洋盐度统计数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.灾情数据.地点","name":"地点","parent":"rootId.国家海洋信息中心.东海信息中心.灾情数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.灾情数据.强度","name":"强度","parent":"rootId.国家海洋信息中心.东海信息中心.灾情数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.灾情数据.损失","name":"损失","parent":"rootId.国家海洋信息中心.东海信息中心.灾情数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.矢量数据.倾倒区位置","name":"倾倒区位置","parent":"rootId.国家海洋信息中心.东海信息中心.矢量数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.矢量数据.倾倒区范围","name":"倾倒区范围","parent":"rootId.国家海洋信息中心.东海信息中心.矢量数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.矢量数据.海底管线深度","name":"海底管线深度","parent":"rootId.国家海洋信息中心.东海信息中心.矢量数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.矢量数据.海底管线长度","name":"海底管线长度","parent":"rootId.国家海洋信息中心.东海信息中心.矢量数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.遥感数据.海冰覆盖","name":"海冰覆盖","parent":"rootId.国家海洋信息中心.东海信息中心.遥感数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.遥感数据.海洋颜色","name":"海洋颜色","parent":"rootId.国家海洋信息中心.东海信息中心.遥感数据"},{"depth":4,"id":"rootId.国家海洋信息中心.东海信息中心.遥感数据.温度","name":"温度","parent":"rootId.国家海洋信息中心.东海信息中心.遥感数据"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_志愿船.流速","name":"流速","parent":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_志愿船"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_志愿船.温度","name":"温度","parent":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_志愿船"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_志愿船.盐度","name":"盐度","parent":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_志愿船"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_浮标.流速","name":"流速","parent":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_浮标"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_浮标.温度","name":"温度","parent":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_浮标"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_浮标.盐度","name":"盐度","parent":"rootId.国家海洋信息中心.北海信息中心.北海海洋观测资料_浮标"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料.水位","name":"水位","parent":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料.海平面","name":"海平面","parent":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料.潮汐","name":"潮汐","parent":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料"},{"depth":4,"id":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料.站点","name":"站点","parent":"rootId.国家海洋信息中心.北海信息中心.海洋站水准联测资料"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品.厚度","name":"厚度","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品.季节性变化","name":"季节性变化","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品.温度","name":"温度","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品.移动趋势","name":"移动趋势","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感极地海冰应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感海冰应用监测产品.厚度","name":"厚度","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感海冰应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感海冰应用监测产品.移动趋势","name":"移动趋势","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感海冰应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感海冰应用监测产品.范围","name":"范围","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感海冰应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感绿潮应用监测产品.分布区域","name":"分布区域","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感绿潮应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感绿潮应用监测产品.生物量","name":"生物量","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感绿潮应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感绿潮应用监测产品.覆盖面积","name":"覆盖面积","parent":"rootId.国家海洋信息中心.国家卫星海洋应用中心.海洋遥感绿潮应用监测产品"},{"depth":4,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据.地点","name":"地点","parent":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据"},{"depth":4,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据.温度","name":"温度","parent":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据"},{"depth":4,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据.湿度","name":"湿度","parent":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据"},{"depth":4,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据.盐度","name":"盐度","parent":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据"},{"depth":4,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据.风向","name":"风向","parent":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据"},{"depth":4,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据.风速","name":"风速","parent":"rootId.国家海洋信息中心.国家深海基地管理中心.地面气象观测数据"},{"depth":4,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.鳌山站潮汐数据.变化趋势","name":"变化趋势","parent":"rootId.国家海洋信息中心.国家深海基地管理中心.鳌山站潮汐数据"},{"depth":4,"id":"rootId.国家海洋信息中心.国家深海基地管理中心.鳌山站潮汐数据.潮位高度","name":"潮位高度","parent":"rootId.国家海洋信息中心.国家深海基地管理中心.鳌山站潮汐数据"},{"depth":4,"id":"rootId.海洋综合研究.海底地形.2020全球海底地形数据.地形","name":"地形","parent":"rootId.海洋综合研究.海底地形.2020全球海底地形数据"},{"depth":4,"id":"rootId.海洋综合研究.海底地形.2020全球海底地形数据.纬度","name":"纬度","parent":"rootId.海洋综合研究.海底地形.2020全球海底地形数据"},{"depth":4,"id":"rootId.海洋综合研究.海底地形.2020全球海底地形数据.经度","name":"经度","parent":"rootId.海洋综合研究.海底地形.2020全球海底地形数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.海洋磁力数据.强度","name":"强度","parent":"rootId.海洋综合研究.海洋地球物理.海洋磁力数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.海洋磁力数据.纬度","name":"纬度","parent":"rootId.海洋综合研究.海洋地球物理.海洋磁力数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.海洋磁力数据.经度","name":"经度","parent":"rootId.海洋综合研究.海洋地球物理.海洋磁力数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.海洋重力数据.纬度","name":"纬度","parent":"rootId.海洋综合研究.海洋地球物理.海洋重力数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.海洋重力数据.经度","name":"经度","parent":"rootId.海洋综合研究.海洋地球物理.海洋重力数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.海洋重力数据.重力加速度","name":"重力加速度","parent":"rootId.海洋综合研究.海洋地球物理.海洋重力数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集.厚度","name":"厚度","parent":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集.深度","name":"深度","parent":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集.物质组成","name":"物质组成","parent":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集.纬度","name":"纬度","parent":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集.经度","name":"经度","parent":"rootId.海洋综合研究.海洋地球物理.马里亚纳海沟浅剖数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋底质.多金属结核主量元素数据.分布","name":"分布","parent":"rootId.海洋综合研究.海洋底质.多金属结核主量元素数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋底质.多金属结核主量元素数据.含量","name":"含量","parent":"rootId.海洋综合研究.海洋底质.多金属结核主量元素数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋底质.沉积物粒度数据.分布","name":"分布","parent":"rootId.海洋综合研究.海洋底质.沉积物粒度数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋底质.沉积物粒度数据.粒径","name":"粒径","parent":"rootId.海洋综合研究.海洋底质.沉积物粒度数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋底质.碳十四测年数据.含量","name":"含量","parent":"rootId.海洋综合研究.海洋底质.碳十四测年数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋底质.碳十四测年数据.年代","name":"年代","parent":"rootId.海洋综合研究.海洋底质.碳十四测年数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集.位置","name":"位置","parent":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集.天气现象","name":"天气现象","parent":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集.平台类型","name":"平台类型","parent":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集.数据来源","name":"数据来源","parent":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集.气温","name":"气温","parent":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集.风","name":"风","parent":"rootId.海洋综合研究.海洋气象.国际海洋大气综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.海面气象综合数据集.位置","name":"位置","parent":"rootId.海洋综合研究.海洋气象.海面气象综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.海面气象综合数据集.天气现象","name":"天气现象","parent":"rootId.海洋综合研究.海洋气象.海面气象综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.海面气象综合数据集.平台类型","name":"平台类型","parent":"rootId.海洋综合研究.海洋气象.海面气象综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.海面气象综合数据集.数据来源","name":"数据来源","parent":"rootId.海洋综合研究.海洋气象.海面气象综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.海面气象综合数据集.气温","name":"气温","parent":"rootId.海洋综合研究.海洋气象.海面气象综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.海面气象综合数据集.风","name":"风","parent":"rootId.海洋综合研究.海洋气象.海面气象综合数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.渔船观测数据集.位置","name":"位置","parent":"rootId.海洋综合研究.海洋气象.渔船观测数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.渔船观测数据集.天气现象","name":"天气现象","parent":"rootId.海洋综合研究.海洋气象.渔船观测数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.渔船观测数据集.平台类型","name":"平台类型","parent":"rootId.海洋综合研究.海洋气象.渔船观测数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.渔船观测数据集.数据来源","name":"数据来源","parent":"rootId.海洋综合研究.海洋气象.渔船观测数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.渔船观测数据集.气温","name":"气温","parent":"rootId.海洋综合研究.海洋气象.渔船观测数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋气象.渔船观测数据集.风","name":"风","parent":"rootId.海洋综合研究.海洋气象.渔船观测数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋水文.中国台站观测数据.水位","name":"水位","parent":"rootId.海洋综合研究.海洋水文.中国台站观测数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋水文.中国台站观测数据.波浪","name":"波浪","parent":"rootId.海洋综合研究.海洋水文.中国台站观测数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋水文.中国台站观测数据.温度","name":"温度","parent":"rootId.海洋综合研究.海洋水文.中国台站观测数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋水文.中国台站观测数据.盐度","name":"盐度","parent":"rootId.海洋综合研究.海洋水文.中国台站观测数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋水文.中国月平均水位延时数据.水位","name":"水位","parent":"rootId.海洋综合研究.海洋水文.中国月平均水位延时数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋水文.波浪和风场数据.波浪","name":"波浪","parent":"rootId.海洋综合研究.海洋水文.波浪和风场数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋水文.波浪和风场数据.风场","name":"风场","parent":"rootId.海洋综合研究.海洋水文.波浪和风场数据"},{"depth":4,"id":"rootId.海洋综合研究.海洋水文.海表面压强.压强","name":"压强","parent":"rootId.海洋综合研究.海洋水文.海表面压强"},{"depth":4,"id":"rootId.海洋综合研究.海洋生物.日本东部时序站海洋生物数据集.生物类型","name":"生物类型","parent":"rootId.海洋综合研究.海洋生物.日本东部时序站海洋生物数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋生物.澳大利亚海洋观测综合系统海洋生物数据集.生物类型","name":"生物类型","parent":"rootId.海洋综合研究.海洋生物.澳大利亚海洋观测综合系统海洋生物数据集"},{"depth":4,"id":"rootId.海洋综合研究.海洋生物.美国国家近岸海洋科学中心海洋生物数据集.生物类型","name":"生物类型","parent":"rootId.海洋综合研究.海洋生物.美国国家近岸海洋科学中心海洋生物数据集"},{"depth":4,"id":"rootId.全球海洋遥感数据.影像遥感.中国近海HY1C-CZI影像数据.分辨率","name":"分辨率","parent":"rootId.全球海洋遥感数据.影像遥感.中国近海HY1C-CZI影像数据"},{"depth":4,"id":"rootId.全球海洋遥感数据.影像遥感.中国近海HY1C-CZI影像数据.影像类型","name":"影像类型","parent":"rootId.全球海洋遥感数据.影像遥感.中国近海HY1C-CZI影像数据"},{"depth":4,"id":"rootId.全球海洋遥感数据.影像遥感.中国近海HY1C-CZI影像数据.覆盖范围","name":"覆盖范围","parent":"rootId.全球海洋遥感数据.影像遥感.中国近海HY1C-CZI影像数据"},{"depth":4,"id":"rootId.全球海洋遥感数据.影像遥感.中国近海海域MODIS原始影像数据.分辨率","name":"分辨率","parent":"rootId.全球海洋遥感数据.影像遥感.中国近海海域MODIS原始影像数据"},{"depth":4,"id":"rootId.全球海洋遥感数据.影像遥感.中国近海海域MODIS原始影像数据.影像类型","name":"影像类型","parent":"rootId.全球海洋遥感数据.影像遥感.中国近海海域MODIS原始影像数据"},{"depth":4,"id":"rootId.全球海洋遥感数据.影像遥感.中国近海海域MODIS原始影像数据.覆盖范围","name":"覆盖范围","parent":"rootId.全球海洋遥感数据.影像遥感.中国近海海域MODIS原始影像数据"}];
+            // const allNodes = [{ depth: 0, id: "rootId", name: "", parent: "undefined" }, { depth: 1, id: "rootId.水果", name: "水果", parent: "rootId" }, { depth: 1, id: "rootId.家具", name: "家具", parent: "rootId" }, { depth: 2, id: "rootId.水果.苹果", name: "苹果", parent: "rootId.水果" }, { depth: 2, id: "rootId.水果.香蕉", name: "香蕉", parent: "rootId.水果" }, { depth: 2, id: "rootId.水果.橙子", name: "橙子", parent: "rootId.水果" }, { depth: 2, id: "rootId.家具.桌子", name: "桌子", parent: "rootId.家具" }, { depth: 2, id: "rootId.家具.空调", name: "空调", parent: "rootId.家具" }, { depth: 2, id: "rootId.家具.床", name: "床", parent: "rootId.家具" }, { depth: 2, id: "rootId.家具.水果柜", name: "水果柜", parent: "rootId.家具" }, { depth: 3, id: "rootId.水果.苹果.红富士", name: "红富士", parent: "rootId.水果.苹果" }];
+
+            const rootNodes = allNodes.filter(node => node.depth === 1);
+            let network;
+            let relationHash = {};
+            let nodes = [];
+            let edges = [];
+            let data = {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
+
+            let isExpanded = {}; // 节点展开状态
+            let columnNodesCache = {}; // 子节点缓存
+
+            // 初始化根节点
+            function initializeGraph() {
+                allNodes.forEach(item => {
+                    if (item.depth === 0) {
+                        data.nodes.add({
+                            id: item.id,
+                            label: item.name || "数据资产",
+                            font: { size: 20 },
+                            color: '#97c2fc',
+                            shape: 'ellipse'
+                        });
+                        expandNode(item.id);
+                        isExpanded[item.id] = true;
+                    }
+                });
+            }
+
+            // 扩展结点
+            function expandNode(parentId) {
+                const childNodes = allNodes.filter(item => item.parent === parentId);
+                let edgesToAdd = [];
+                childNodes.forEach(child => {
+                    if (!data.nodes.get(child.id)) {
+                        data.nodes.add({
+                            id: child.id,
+                            label: child.name,
+                            depth: child.depth,
+                            parent: child.parent,
+                            font: {size: 20},
+                            color: getColorByDepth(child.depth),
+                            shape: 'ellipse'
+                        });
+                    }
+                    edgesToAdd.push({
+                        from: parentId,
+                        to: child.id,
+                        arrows: 'to'
+                    });
+                });
+                data.edges.add(edgesToAdd);
+                columnNodesCache[parentId] = childNodes.map(child => child.id);
+                isExpanded[parentId] = true;
+                const parent = data.nodes.get(parentId);
+                calculateNodeRelations(parent);
+            }
+
+            // 收缩结点
+            function collapseNode(parentId) {
+                const childNodeIds = columnNodesCache[parentId] || [];
+                childNodeIds.forEach(childId => {
+                    collapseNode(childId);
+                    data.nodes.remove(childId);
+                });
+                data.edges.forEach(edge => {
+                    if (edge.from === parentId) {
+                        data.edges.remove(edge.id);
+                    }
+                });
+                isExpanded[parentId] = false;
+                analyzeRelations();
+            }
+
+            // 绘制图
+            function drawGraph() {
+                const container = document.getElementById('PARAGRAPH_ID_single_container');
+                const options = {
+                    autoResize: true,
+                    width: '100%',
+                    height: "500px",
+                    physics: {
+                        enabled: true, // 启用物理引擎
+                        solver: 'forceAtlas2Based', // 使用更适合层次图的布局算法
+                        stabilization: {
+                            enabled: true, // 启用稳定化
+                            iterations: 200, // 减少动画的剧烈变化
+                            updateInterval: 25
+                        },
+                        forceAtlas2Based: {
+                            gravitationalConstant: -50, // 减小吸引力，值越负，吸引力越小
+                            centralGravity: 0.01, // 减小中心点吸引力
+                            springLength: 100, // 增加边的自然长度
+                            springConstant: 0.05, // 减小边的弹性系数，弹性越小，动画越柔和
+                            damping: 0.3 // 增大阻尼，值越大，动画越慢且更丝滑
+                        },
+                        maxVelocity: 10, // 限制最大速度，值越小，移动越缓慢
+                        minVelocity: 0.1, // 限制最小速度，避免节点卡住
+                    },
+                    edges: {
+                        arrows: {
+                            to: { enabled: true }
+                        }
+                    }
+                };
+                network = new vis.Network(container, data, options);
+
+                // 绑定双击事件
+                network.on('doubleClick', function (params) {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        if (isExpanded[nodeId]) {
+                            collapseNode(nodeId);
+                        } else {
+                            expandNode(nodeId);
+                        }
+                    }
+                });
+            }
+
+            // 修改节点的颜色根据深度设置
+            function getColorByDepth(depth) {
+                switch (depth) {
+                    case 0:
+                        return '#97c2fc'; // 深度为0的颜色
+                    case 1:
+                        return '#ffb6c1'; // 深度为1的颜色
+                    case 2:
+                        return '#f9a825'; // 深度为2的颜色
+                    case 3:
+                        return '#8bc34a'; // 深度为3的颜色
+                    default:
+                        return '#c5e1a5'; // 默认颜色
+                }
+            }
+
+            async function getResponse(prompt) {
+                const API_KEY = "204a3ea9bf39f18dd9bf32c71ecbb607.mITgz6pgV7Hzj27A";
+                const API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+                try {
+                    const requestBody = {model: "GLM-4-Flash", messages: [{role: "user", content: prompt}]};
+                    const response = await fetch(API_URL, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${API_KEY}`
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    if (response.ok) {
+                        const jsonResponse = await response.json();
+                        return jsonResponse.choices[0].message.content;
+                    } else {
+                        return `Error: ${response.status} - ${await response.text()}`;
+                    }
+                } catch (error) {
+                    return "getResponse error occurred";
+                }
+            }
+
+            // 获取两个结点的关系
+            async function getRelation(node1Id, node2Id) {
+                const prompt = `你是一个概念大师，请你给出“${node1Id}”和“${node2Id}”之间的关系及紧密程度，以json形式返回并只返回这一个json字符串，如{"relation": "xxx", "score": 0.82}。注意若关系较为紧密，你返回的relation需要是具体切实的。`;
+                try {
+                    let stdResponse = getStdResponse(await getResponse(prompt)); //{"relation": "相似", "score": 0.8}
+                    if (stdResponse === "") {
+                        stdResponse = getStdResponse(await getResponse(prompt));
+                    }
+                    const result = JSON.parse(stdResponse);
+                    return result;
+                } catch (error) {
+                    console.error("获取关系失败：", error);
+                    return { relation: "未知", score: 0 };
+                }
+            }
+
+            function getStdResponse(response) {
+                const regex = /\{(.*?)\}/;
+                const match = response.match(regex);
+                if (match) {
+                    return match[0];
+                }
+                return "";
+            }
+
+            // 获取结点的树根
+            function getRootId(str) {
+                const parts = str.split('.');
+                return parts[0] + "." + parts[1];
+            }
+
+            // 根据两个结点id获取key
+            function getKeyWithIds(a, b) {
+                if (a.localeCompare(b) < 0) {return a + "-" + b;}
+                else {return b + "-" + a;}
+            }
+
+            // 清除结点间额外关系的边
+            function clearRelation() {
+                const edgesArray = data.edges.get();
+                const edgesToRemove = edgesArray.filter(edge => {
+                    const hasArrow = edge.arrows && edge.arrows !== ""; // 是否有箭头
+                    const isRedColor = edge.color && edge.color === "red"; // 是否为红色
+                    return !hasArrow && isRedColor; // 删除无箭头且红色的边
+                });
+                edgesToRemove.forEach(edge => {
+                    data.edges.remove(edge.id);
+                });
+            }
+
+            // 绘制结点间额外关系的边
+            function drawLinks(links) {
+                const maxLinksNum = Math.floor(data.nodes.length / 2); // 对显示的边数进行限制，避免显示的边太多
+                if (links.length > maxLinksNum) {
+                    links.sort((a, b) => b.score - a.score);
+                    links = links.slice(0, maxLinksNum);
+                }
+                links.forEach(link => {
+                    data.edges.add({
+                        id: `${link.from}->${link.to}`,
+                        from: link.from,
+                        to: link.to,
+                        arrows: "",
+                        color: "red",
+                        label: link.relation,
+                        font: { align: "top" }
+                    });
+                });
+            }
+
+            // 分析结点间的关系，确定要添加的边
+            async function analyzeRelations() {
+                console.log("<===begin analyzeRelations");
+                clearRelation();
+                let links = [];
+
+                for (let i = 0; i < rootNodes.length; i++) {
+                    for (let j = i + 1; j < rootNodes.length; j++) {
+                        const tree1 = rootNodes[i];
+                        const tree2 = rootNodes[j];
+                        const key = getKeyWithIds(tree1.id, tree2.id);
+
+                        if (relationHash[key] &&  Object.keys(relationHash[key]).length > 0) {
+                            const filteredLinks = Object.values(relationHash[key]).filter(link => link.score >= RELATION_THRESHOLD);
+                            const bestMatch = filteredLinks.sort((a, b) => b.score - a.score)[0];
+
+                            if (bestMatch) {
+                                links.push({
+                                    from: bestMatch.from,
+                                    to: bestMatch.to,
+                                    relation: bestMatch.relation,
+                                    score: bestMatch.score
+                                });
+                            }
+                        }
+                    }
+                }
+                console.log("links为：" + JSON.stringify(links));
+                drawLinks(links);
+            }
+
+            // 计算结点间的关系
+            async function calculateNodeRelations(node) {
+                console.log("<===calculateNodeRelations: " + node.id);
+                if (node.depth >= RELATION_DEPTH_LEVEL) return;
+                const visibleNodes = Array.from(data.nodes.get()).filter(node => node.depth >= 1 && node.depth <= RELATION_DEPTH_LEVEL);
+                const nodeChildren = allNodes.filter(child => child.parent === node.id);
+
+                const relationPromises = [];
+
+                for (const child of nodeChildren) {
+                    for (const otherNode of visibleNodes) {
+                        const rootId1 = getRootId(child.id);
+                        const rootId2 = getRootId(otherNode.id);
+                        if (rootId1 === rootId2) continue;
+
+                        const bucket = getKeyWithIds(rootId1, rootId2);
+                        if (!relationHash[bucket]) {
+                            relationHash[bucket] = {};
+                        }
+
+                        const key = getKeyWithIds(child.id, otherNode.id);
+                        if (!relationHash[bucket][key]) {
+                            relationPromises.push(
+                                getRelation(child.name, otherNode.name).then(result => {
+                                    console.log(child.id + "和" + otherNode.id + "的关系为：" + JSON.stringify(result));
+                                    relationHash[bucket][key] = {
+                                        from: child.id,
+                                        to: otherNode.id,
+                                        score: result.score,
+                                        relation: result.relation,
+                                    };
+                                })
+                            );
+                        }
+                    }
+                }
+
+                await Promise.all(relationPromises);
+                console.log("relationHash为：" + JSON.stringify(relationHash));
+                analyzeRelations();
+            }
+
+            // 初始化图形
+            initializeGraph();
+            drawGraph();
+
+            document.getElementById('PARAGRAPH_ID_toggleButton').addEventListener('click', function() {
+                var container = document.getElementById('iframe-container');
+                if (container.style.display === 'none' || container.classList.contains('hidden')) {
+                    // 显示图表
+                    container.style.display = 'block';
+                    network.fit();
+                    network.redraw();
+                    this.innerText="隐藏数据资产"
+                } else {
+                    // 隐藏图表
+                    container.style.display = 'none';
+                    this.innerText="显示数据资产"
+                }
+            });
+
+        } catch (error) {
+            console.error('加载过程中出错:', error);
+        }
+    }
+
+    // 初始化
+    init();
+
+</script>
+</body>
+</html>
