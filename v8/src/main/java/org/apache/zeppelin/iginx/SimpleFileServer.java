@@ -36,22 +36,14 @@ public class SimpleFileServer {
   }
 
   public void start() throws IOException {
-    // 检测端口是否被占用，如果占用则kill掉
-    try {
-      new Socket("localhost", port).close();
-      LOGGER.info("SimpleFileServer started on port {}", port);
-      if (isOnWin) {
-        Runtime.getRuntime()
-            .exec(
-                "for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :"
-                    + port
-                    + "') do taskkill /F /PID %a");
-      } else {
-        Runtime.getRuntime().exec("kill -9 $(lsof -t -i:" + port + ")");
-      }
+    try (ServerSocket socket = new ServerSocket(port)) {
+      socket.setReuseAddress(true);
     } catch (IOException e) {
-      // do nothing
-      LOGGER.error("restart server error.", e);
+      LOGGER.error("Port {} is already in use, trying to kill the process...", port);
+
+      if (isOnWin) {
+        killProcessOnWindows(port);
+      }
     }
 
     try {
@@ -70,6 +62,41 @@ public class SimpleFileServer {
   public void stop() {
     if (httpServer != null) {
       httpServer.stop(0);
+    }
+  }
+
+  private void killProcessOnWindows(int port) {
+    try {
+      // 执行 netstat 命令查找占用端口的进程 ID
+      String cmd = "netstat -ano | findstr :" + port;
+      ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/c", cmd);
+      Process process = builder.start();
+      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+      String line;
+      String pid = null;
+      while ((line = reader.readLine()) != null) {
+        LOGGER.info("netstat output: {}", line);
+        String[] parts = line.split("\\s+");
+        if (parts.length > 4) {
+          pid = parts[parts.length - 1]; // PID 是 netstat 输出的最后一个字段
+          break;
+        }
+      }
+      if (pid == null) {
+        LOGGER.warn("No process found occupying port {}", port);
+        return;
+      }
+      // 执行 taskkill 命令杀死进程
+      String killCmd = "taskkill /F /PID " + pid;
+      process = Runtime.getRuntime().exec(killCmd);
+      int exitCode = process.waitFor(); // 等待命令执行完成
+      if (exitCode == 0) {
+        LOGGER.info("Successfully killed process(pid is {}) occupying port {}", pid, port);
+      } else {
+        LOGGER.error("Failed to kill process on port {}", port);
+      }
+    } catch (Exception ex) {
+      LOGGER.error("Failed to kill process on port {}", port, ex);
     }
   }
 
