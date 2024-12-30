@@ -259,7 +259,7 @@
 
             // 获取两个结点的关系
             async function getRelation(node1Id, node2Id) {
-                const prompt = `你是一个概念大师，请你给出“${node1Id}”和“${node2Id}”之间的关系及紧密程度，以json形式返回并只返回这一个json字符串，如{"relation": "xxx", "score": 0.82}。注意若关系较为紧密，你返回的relation需要是具体切实的。`;
+                const prompt = `你是一个概念大师，请你给出“${node1Id}”和“${node2Id}”之间的关系及紧密程度，以json字符串的形式返回，如{"relation": "包含", "score": 0.82}。注意你只需返回这个json字符串；此外，若关系较为紧密，你返回的relation需要是具体切实并且一定要是简洁精炼的。`;
                 try {
                     let stdResponse = getStdResponse(await getResponse(prompt)); //{"relation": "相似", "score": 0.8}
                     if (stdResponse === "") {
