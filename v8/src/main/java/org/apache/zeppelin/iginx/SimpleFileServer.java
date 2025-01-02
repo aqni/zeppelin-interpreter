@@ -6,9 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.*;
 import java.net.*;
 import java.nio.file.Files;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Enumeration;
+import java.util.*;
 import org.apache.zeppelin.iginx.util.HttpUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,29 +69,33 @@ public class SimpleFileServer {
       String cmd = "netstat -ano | findstr :" + port;
       ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/c", cmd);
       Process process = builder.start();
-      BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-      String line;
-      String pid = null;
-      while ((line = reader.readLine()) != null) {
-        LOGGER.info("netstat output: {}", line);
-        String[] parts = line.split("\\s+");
-        if (parts.length > 4) {
-          pid = parts[parts.length - 1]; // PID 是 netstat 输出的最后一个字段
-          break;
+      try (BufferedReader reader =
+          new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+        String line;
+        Set<String> pids = new HashSet<>();
+        while ((line = reader.readLine()) != null) {
+          LOGGER.info("netstat output: {}", line);
+          String[] parts = line.split("\\s+");
+          if (parts.length > 4) {
+            String pid = parts[parts.length - 1]; // PID 是 netstat 输出的最后一个字段
+            pids.add(pid);
+          }
         }
-      }
-      if (pid == null) {
-        LOGGER.warn("No process found occupying port {}", port);
-        return;
-      }
-      // 执行 taskkill 命令杀死进程
-      String killCmd = "taskkill /F /PID " + pid;
-      process = Runtime.getRuntime().exec(killCmd);
-      int exitCode = process.waitFor(); // 等待命令执行完成
-      if (exitCode == 0) {
-        LOGGER.info("Successfully killed process(pid is {}) occupying port {}", pid, port);
-      } else {
-        LOGGER.error("Failed to kill process on port {}", port);
+        if (pids.isEmpty()) {
+          LOGGER.warn("No process found occupying port {}", port);
+          return;
+        }
+        // 遍历所有 PID 并使用 taskkill 命令终止进程
+        for (String pid : pids) {
+          String killCmd = "taskkill /F /PID " + pid;
+          process = Runtime.getRuntime().exec(killCmd);
+          int exitCode = process.waitFor(); // 等待命令执行完成
+          if (exitCode == 0) {
+            LOGGER.info("Successfully killed process(pid is {}) occupying port {}", pid, port);
+          } else {
+            LOGGER.error("Failed to kill process(pid is {}) on port {}", pid, port);
+          }
+        }
       }
     } catch (Exception ex) {
       LOGGER.error("Failed to kill process on port {}", port, ex);
