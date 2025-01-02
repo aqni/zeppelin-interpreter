@@ -372,7 +372,7 @@ public class IginxInterpreter8 extends Interpreter {
             });
     String htmlTemplate = "static/highcharts/tree.html";
     try (InputStream inputStream =
-        IginxInterpreter8.class.getClassLoader().getResourceAsStream(htmlTemplate)) {
+        this.getClass().getClassLoader().getResourceAsStream(htmlTemplate)) {
       BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
       StringBuilder content = new StringBuilder();
       String line;
@@ -463,7 +463,7 @@ public class IginxInterpreter8 extends Interpreter {
 
     String htmlTemplate = "static/vis/network.html";
     try (InputStream inputStream =
-        IginxInterpreter8.class.getClassLoader().getResourceAsStream(htmlTemplate)) {
+        this.getClass().getClassLoader().getResourceAsStream(htmlTemplate)) {
       BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
       StringBuilder content = new StringBuilder();
       String line;
